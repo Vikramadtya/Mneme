@@ -2,7 +2,7 @@
   "name": "memoriser",
   "private": true,
   "version": "0.0.0",
-  "repository": "user/memoriser",
+  "repository": "Vikramadtya/Mneme",
   "type": "module",
   "main": "dist-electron/main.js",
   "scripts": {
