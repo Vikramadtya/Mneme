@@ -66,7 +66,7 @@ export function NoteEditor({ note }: { note: any }) {
     }
     setActiveHistoryNote(note);
     setIsHistoryOpen(true);
-    const res = await (ipc as any).getNoteHistory(vaultPath, note.id);
+    const res = await ipc.getFileHistory(vaultPath, note.id);
     if (res.success) {
       setNoteHistory(res.data || []);
     }
@@ -110,14 +110,9 @@ export function NoteEditor({ note }: { note: any }) {
     }
   }, [editNoteContent, editingNoteId, note.id]);
 
-  const [debouncedLocalContent] = useDebounce(localContent, 150);
-
-  // Debounce syncing to global context to prevent full app re-renders on every keystroke
-  useEffect(() => {
-    if (debouncedLocalContent !== editNoteContent) {
-      setEditNoteContent(debouncedLocalContent);
-    }
-  }, [debouncedLocalContent, editNoteContent, setEditNoteContent]);
+  const debouncedSetEditNoteContent = useDebouncedCallback((val) => {
+    setEditNoteContent(val);
+  }, 150);
 
   const debouncedSave = useDebouncedCallback(() => {
     saveEdit(false);
@@ -183,6 +178,7 @@ export function NoteEditor({ note }: { note: any }) {
   // 1.4 Note linking autocomplete & Undo tracking
   const handleContentChange = (val: string, viewUpdate?: any) => {
     setLocalContent(val);
+    debouncedSetEditNoteContent(val);
 
     if (viewUpdate && viewUpdate.view) {
       const view = viewUpdate.view;

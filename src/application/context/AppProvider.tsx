@@ -50,6 +50,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Build Notes context — splice in splitPaneNoteId from uiStore
   const fullNotesContextValue = {
     ...notesState,
+    handleArchiveProject: notesState.handleArchiveProject,
+    handleUnarchiveProject: notesState.handleUnarchiveProject,
     splitPaneNoteId: uiStore.splitPaneNoteId,
     setSplitPaneNoteId: uiStore.setSplitPaneNoteId,
   };

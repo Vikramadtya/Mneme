@@ -1,7 +1,9 @@
 import { MarkdownRenderer } from "./MarkdownRenderer";
-import { History, X } from "lucide-react";
+import { History, X, SplitSquareHorizontal, Eye } from "lucide-react";
 import { useVault, useNotes, useUI } from "../application/context";
 import { preprocessMarkdown } from "../utils/markdownUtils";
+import ReactDiffViewer, { DiffMethod } from "react-diff-viewer-continued";
+import React, { useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -24,6 +26,8 @@ export function HistoryModal() {
   const handleViewCommit = useUI((s) => s.handleViewCommit);
   const handleRestoreCommit = useUI((s) => s.handleRestoreCommit);
 
+  const [viewMode, setViewMode] = useState<"diff" | "preview">("diff");
+
   const handleOpenChange = (open: boolean) => {
     setIsHistoryOpen(open);
     if (!open) {
@@ -36,7 +40,7 @@ export function HistoryModal() {
 
   return (
     <Dialog open={isHistoryOpen} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-5xl h-[85vh] p-0 flex flex-row overflow-hidden gap-0 bg-card rounded-xl border-border sm:rounded-xl">
+      <DialogContent className="max-w-[95vw] sm:max-w-6xl w-full h-[85vh] p-0 flex flex-row overflow-hidden gap-0 bg-card rounded-xl border-border sm:rounded-xl">
         <DialogTitle className="sr-only">Note History</DialogTitle>
         <DialogDescription className="sr-only">
           View history of the selected note.
@@ -90,6 +94,22 @@ export function HistoryModal() {
             </h3>
             <div className="flex items-center gap-2">
               {viewingCommitHash && (
+                <div className="flex bg-accent rounded-md p-0.5 mr-2">
+                  <button
+                    onClick={() => setViewMode("diff")}
+                    className={`px-3 py-1.5 rounded-sm text-xs font-medium flex items-center ${viewMode === "diff" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                  >
+                    <SplitSquareHorizontal size={14} className="mr-1.5" /> Diff
+                  </button>
+                  <button
+                    onClick={() => setViewMode("preview")}
+                    className={`px-3 py-1.5 rounded-sm text-xs font-medium flex items-center ${viewMode === "preview" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                  >
+                    <Eye size={14} className="mr-1.5" /> Preview
+                  </button>
+                </div>
+              )}
+              {viewingCommitHash && (
                 <button
                   onClick={() => handleRestoreCommit(activeHistoryNote)}
                   className="bg-purple-500 text-white px-4 py-1.5 rounded-md text-sm font-medium hover:bg-purple-600 transition-colors"
@@ -105,7 +125,7 @@ export function HistoryModal() {
               </button>
             </div>
           </div>
-          <div className="flex-1 p-6 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto">
             {viewingCommitHash ? (
               historicalContent === null ? (
                 <div className="text-gray-500 flex justify-center mt-10">
@@ -116,8 +136,29 @@ export function HistoryModal() {
                   </div>
                 </div>
               ) : (
-                <div className="w-full">
-                  <MarkdownRenderer content={historicalContent} />
+                <div className="w-full h-full p-0">
+                  {viewMode === "diff" ? (
+                    <div className="h-full bg-white dark:bg-[#1e1e1e] overflow-auto text-sm">
+                      <ReactDiffViewer
+                        oldValue={String(historicalContent || "")}
+                        newValue={String(activeHistoryNote.content || "")}
+                        splitView={true}
+                        compareMethod={DiffMethod.WORDS}
+                        useDarkTheme={
+                          vaultSettings?.theme === "dark" ||
+                          (vaultSettings?.theme === "system" &&
+                            window.matchMedia("(prefers-color-scheme: dark)")
+                              .matches)
+                        }
+                        leftTitle="Historical Version"
+                        rightTitle="Current Version"
+                      />
+                    </div>
+                  ) : (
+                    <div className="p-6">
+                      <MarkdownRenderer content={historicalContent} />
+                    </div>
+                  )}
                 </div>
               )
             ) : (

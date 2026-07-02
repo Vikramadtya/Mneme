@@ -1,5 +1,12 @@
 import React from "react";
-import { Maximize, Search, GitCommit, Sun, Moon } from "lucide-react";
+import {
+  Maximize,
+  Search,
+  GitCommit,
+  Sun,
+  Moon,
+  Minimize2,
+} from "lucide-react";
 import { ipc } from "../ipc";
 import { useVault, useNotes, useUI } from "../application/context";
 import { Tooltip } from "./Tooltip";
@@ -19,13 +26,13 @@ function usePrefersDark(): boolean {
 
 function ZenModeButton({ zenMode, setZenMode }: any) {
   return (
-    <div title="Toggle Zen Mode">
+    <div title={zenMode ? "Exit Zen Mode" : "Enter Zen Mode"}>
       <button
-        onClick={() => setZenMode((prev: any) => !prev)}
+        onClick={() => setZenMode(!zenMode)}
         className={`p-1.5 rounded-md transition-colors ${zenMode ? "bg-[#007aff]/10 text-[#007aff]" : "text-gray-400 hover:text-gray-600 dark:hover:text-white"}`}
         aria-label="Toggle Zen Mode"
       >
-        <Maximize size={20} />
+        {zenMode ? <Minimize2 size={20} /> : <Maximize size={20} />}
       </button>
     </div>
   );

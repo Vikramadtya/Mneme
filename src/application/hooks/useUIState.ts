@@ -67,12 +67,17 @@ export function useUIState(
     async (noteId: string, hash: string) => {
       if (!vaultPath) return;
       try {
-        const content = await (ipc as any).getFileAtCommit(
+        const res = await (ipc as any).getFileContentAtCommit(
           vaultPath,
           noteId,
           hash,
         );
-        setHistoricalContent(content);
+        if (res.success) {
+          setHistoricalContent(typeof res.data === "string" ? res.data : "");
+        } else {
+          setHistoricalContent("");
+          showToast("Failed to load commit: " + res.error, "error");
+        }
         setViewingCommitHash(hash);
       } catch (e: any) {
         showToast("Failed to load commit: " + e.message, "error");
@@ -169,9 +174,16 @@ export function useUIState(
       });
 
       if (fullNoteForIpc && vaultPath) {
-        ipc.saveNote(vaultPath, fullNoteForIpc).catch((e: any) => {
-          console.error("Failed to save note background", e);
-        });
+        ipc
+          .saveNote(vaultPath, fullNoteForIpc)
+          .then((res: any) => {
+            if (res.success && res.formattedContent !== undefined) {
+              setEditNoteContent(res.formattedContent);
+            }
+          })
+          .catch((e: any) => {
+            console.error("Failed to save note background", e);
+          });
       }
 
       if (close) {
@@ -219,7 +231,7 @@ export function useUIState(
 
           if (res.success) {
             const isPdf = file.type === "application/pdf";
-            const markdownAsset = `\n${isPdf ? "" : "!"}[${file.name}](./assets/images/${res.data})\n`;
+            const markdownAsset = `\n${isPdf ? "" : "!"}[${file.name}](${res.url})\n`;
 
             if (isEditing) {
               setEditNoteContent((prev) => prev + markdownAsset);

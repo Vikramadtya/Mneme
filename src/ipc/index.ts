@@ -111,6 +111,26 @@ export const ipc = {
       project,
     );
   },
+  archiveProject: async (
+    vaultPath: string,
+    projectId: string,
+  ): Promise<IpcResponse> => {
+    return (window as any).ipcRenderer.invoke(
+      "db:archiveProject",
+      vaultPath,
+      projectId,
+    );
+  },
+  unarchiveProject: async (
+    vaultPath: string,
+    projectId: string,
+  ): Promise<IpcResponse> => {
+    return (window as any).ipcRenderer.invoke(
+      "db:unarchiveProject",
+      vaultPath,
+      projectId,
+    );
+  },
   getNoteContent: async (
     vaultPath: string,
     noteId: string,

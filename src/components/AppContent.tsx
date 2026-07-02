@@ -8,7 +8,7 @@ import {
   Star,
   X,
   History,
-  Minimize2,
+  LayoutGrid,
   ChevronDown,
   FileText,
 } from "lucide-react";
@@ -245,16 +245,6 @@ export function AppContent() {
             ) : (
               <>
                 <TopBar />
-
-                {zenMode && (
-                  <button
-                    onClick={() => setZenMode(false)}
-                    className="fixed top-6 right-6 z-50 bg-white/80 dark:bg-zinc-800/80 backdrop-blur border border-border shadow-lg text-muted-foreground hover:text-purple-500 p-2.5 rounded-full transition-all animate-in fade-in"
-                    title="Exit Focus Mode"
-                  >
-                    <Minimize2 size={20} />
-                  </button>
-                )}
 
                 <div
                   className={`px-10 py-6 space-y-6 mx-auto w-full pb-20 ${

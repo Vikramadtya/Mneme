@@ -142,6 +142,42 @@ export function useNotesState(
     [vaultPath, loadDataFromVault, showToast],
   );
 
+  const handleArchiveProject = useCallback(
+    async (projectId: string) => {
+      if (!vaultPath) return;
+      try {
+        const res = await ipc.archiveProject(vaultPath, projectId);
+        if (res.success) {
+          await loadDataFromVault(vaultPath);
+          showToast("Archived successfully", "success");
+        } else {
+          showToast("Failed to archive: " + res.error, "error");
+        }
+      } catch (e: any) {
+        showToast("Error archiving: " + e.message, "error");
+      }
+    },
+    [vaultPath, loadDataFromVault, showToast],
+  );
+
+  const handleUnarchiveProject = useCallback(
+    async (projectId: string) => {
+      if (!vaultPath) return;
+      try {
+        const res = await ipc.unarchiveProject(vaultPath, projectId);
+        if (res.success) {
+          await loadDataFromVault(vaultPath);
+          showToast("Unarchived successfully", "success");
+        } else {
+          showToast("Failed to unarchive: " + res.error, "error");
+        }
+      } catch (e: any) {
+        showToast("Error unarchiving: " + e.message, "error");
+      }
+    },
+    [vaultPath, loadDataFromVault, showToast],
+  );
+
   const handleAddChapter = useCallback(
     async (projectId: string, customName?: string) => {
       if (!vaultPath) return;
@@ -166,11 +202,12 @@ export function useNotesState(
     async (projectId: string) => {
       if (!vaultPath) return;
       try {
-        const dStr = new Date().toISOString().split("T")[0];
+        const now = new Date();
+        const dStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
         const newNote: Note = {
           id: nanoid(),
           date: dStr,
-          time: new Date().toLocaleTimeString([], {
+          time: now.toLocaleTimeString([], {
             hour: "2-digit",
             minute: "2-digit",
           }),
@@ -344,5 +381,7 @@ export function useNotesState(
     toggleFavourite,
     handleUndoDelete,
     setActiveProjectId,
+    handleArchiveProject,
+    handleUnarchiveProject,
   };
 }

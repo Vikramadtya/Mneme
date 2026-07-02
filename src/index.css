@@ -287,3 +287,11 @@
   --sidebar-border: oklch(0.27 0.02 261.692);
   --sidebar-ring: oklch(0.556 0 0);
 }
+
+/* CodeMirror overrides */
+.cm-editor.cm-focused {
+  outline: none !important;
+}
+.cm-content {
+  outline: none !important;
+}

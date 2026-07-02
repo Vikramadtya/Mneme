@@ -20,8 +20,10 @@ export function useVaultState(
     if (!vaultPath || syncing) return;
     setSyncing(true);
     try {
-      const res = await ipc.syncFromVault(vaultPath);
-      // Depending on ipc response structure, assume success if no error thrown
+      const resDb = await ipc.syncFromVault(vaultPath);
+      if (!resDb.success) throw new Error(resDb.error);
+      const resGit = await (ipc as any).syncGit(vaultPath);
+      if (!resGit.success) throw new Error(resGit.error);
       showToast("Vault synced successfully", "success");
     } catch (e: any) {
       showToast("Sync failed: " + e.message, "error");

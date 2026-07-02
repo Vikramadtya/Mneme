@@ -66,6 +66,8 @@ export interface NotesContextType {
   noteHistory: Commit[];
   activePdf: string | null;
   vaultHistory: Commit[];
+  handleArchiveProject: (projectId: string) => Promise<void>;
+  handleUnarchiveProject: (projectId: string) => Promise<void>;
 }
 
 export interface UIContextType {

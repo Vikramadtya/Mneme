@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import {
   Settings,
+  ChevronLeft,
   ChevronRight,
   Archive,
   Search,
@@ -106,6 +107,8 @@ export function LeftSidebar() {
   const handleAddChapter = useNotes((s) => s.handleAddChapter);
   const activeProject = useNotes((s) => s.activeProject);
   const rootProject = useNotes((s) => s.rootProject);
+  const handleArchiveProject = useNotes((s) => s.handleArchiveProject);
+  const handleUnarchiveProject = useNotes((s) => s.handleUnarchiveProject);
   const vaultPath = useVault((s) => s.vaultPath);
   const syncing = useVault((s) => s.syncing);
   const isLive = useVault((s) => s.isLive);
@@ -130,8 +133,22 @@ export function LeftSidebar() {
     handleDragEnd,
   } = useSidebarController();
 
-  const booksToRender = projects.filter((p) => p.type === "book");
-  const coursesToRender = projects.filter((p) => p.type === "course");
+  const isFocusedMode = activeTab === "project" && rootProject;
+  const booksToRender = isFocusedMode
+    ? rootProject.type === "book"
+      ? [rootProject]
+      : []
+    : projects.filter((p) => p.type === "book" && !p.is_archived);
+
+  const coursesToRender = isFocusedMode
+    ? rootProject.type === "course"
+      ? [rootProject]
+      : []
+    : projects.filter((p) => p.type === "course" && !p.is_archived);
+
+  const archivedToRender = isFocusedMode
+    ? []
+    : projects.filter((p) => p.is_archived);
 
   // Force expand the active project when navigating to it
   useEffect(() => {
@@ -277,7 +294,15 @@ export function LeftSidebar() {
                 addingProjectType === "book" ||
                 sidebarSearch === "") && (
                 <div className="mb-6">
-                  {!sidebarCollapsed && (
+                  {isFocusedMode && !sidebarCollapsed && (
+                    <button
+                      onClick={() => setActiveTab("agenda")}
+                      className="w-full flex items-center px-3 py-2 text-[13px] font-medium rounded-xl text-gray-500 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors mb-2"
+                    >
+                      <ChevronLeft size={14} className="mr-1" /> Back to Catalog
+                    </button>
+                  )}
+                  {!sidebarCollapsed && !isFocusedMode && (
                     <div className="flex items-center justify-between mb-1 px-3 group">
                       <div
                         onClick={() => setActiveTab("books")}
@@ -310,7 +335,7 @@ export function LeftSidebar() {
                     </div>
                   )}
 
-                  {(!booksCollapsed || sidebarCollapsed) && (
+                  {(!booksCollapsed || sidebarCollapsed || isFocusedMode) && (
                     <ul className="space-y-0.5">
                       <SortableContext
                         items={booksToRender.map((p: any) => p.id)}
@@ -443,12 +468,54 @@ export function LeftSidebar() {
                 </div>
               )}
 
+              {/* Archives Section */}
+              {archivedToRender.length > 0 &&
+                sidebarSearch === "" &&
+                !isFocusedMode && (
+                  <div className="mb-6">
+                    {!sidebarCollapsed && (
+                      <div className="flex items-center justify-between mb-1 px-3 group">
+                        <div className="cursor-default text-[11px] font-bold uppercase tracking-wider flex items-center text-[#71717a] dark:text-gray-500">
+                          <Archive size={12} className="mr-1" /> Archived
+                        </div>
+                      </div>
+                    )}
+                    <ul className="space-y-0.5">
+                      {archivedToRender.map((p: any) => (
+                        <li key={p.id}>
+                          <div className="flex items-center group pl-8 pr-6 py-1.5 text-[13px] rounded-xl text-gray-500">
+                            <span className="truncate line-through opacity-70">
+                              {p.name}
+                            </span>
+                            <button
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setContextMenu({
+                                  x: e.clientX,
+                                  y: e.clientY,
+                                  id: p.id,
+                                  name: p.name,
+                                  type: p.type as any,
+                                });
+                              }}
+                              className="ml-auto opacity-0 group-hover:opacity-100"
+                            >
+                              <Settings size={12} />
+                            </button>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
               {/* Courses Section */}
               {(coursesToRender.length > 0 ||
                 addingProjectType === "course" ||
                 sidebarSearch === "") && (
                 <div className="mb-6">
-                  {!sidebarCollapsed && (
+                  {!sidebarCollapsed && !isFocusedMode && (
                     <div className="flex items-center justify-between mb-1 px-3 group">
                       <div
                         onClick={() => setActiveTab("courses")}
@@ -703,6 +770,29 @@ export function LeftSidebar() {
               >
                 <CornerRightUp size={14} className="mr-2" /> Move
               </button>
+              {(contextMenu.type === "book" ||
+                contextMenu.type === "course") && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const project = projects.find(
+                      (p) => p.id === contextMenu.id,
+                    );
+                    if (project?.is_archived) {
+                      handleUnarchiveProject(contextMenu.id);
+                    } else {
+                      handleArchiveProject(contextMenu.id);
+                    }
+                    setContextMenu(null);
+                  }}
+                  className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-zinc-700 text-gray-700 dark:text-gray-300 flex items-center"
+                >
+                  <Archive size={14} className="mr-2" />
+                  {projects.find((p) => p.id === contextMenu.id)?.is_archived
+                    ? "Unarchive"
+                    : "Archive"}
+                </button>
+              )}
             </div>
           )}
         </aside>

@@ -171,6 +171,41 @@ export function SettingsModal() {
                     </div>
                   </div>
                 </div>
+
+                <hr className="border-border" />
+
+                <div>
+                  <h3 className="text-base font-bold text-[#1c1c1e] dark:text-white mb-4">
+                    Editor Preferences
+                  </h3>
+                  <div className="flex items-center justify-between bg-[#f4f4f5] dark:bg-card border border-border rounded-lg p-4">
+                    <div>
+                      <p className="text-sm font-semibold text-[#1c1c1e] dark:text-white">
+                        Auto Format on Save
+                      </p>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        Automatically clean up Markdown spacing and formatting
+                        when saving notes.
+                      </p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={vaultSettings.autoFormatOnSave === "true"}
+                        onChange={(e) =>
+                          setVaultSettings((prev: any) => ({
+                            ...prev,
+                            autoFormatOnSave: e.target.checked
+                              ? "true"
+                              : "false",
+                          }))
+                        }
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-[#007aff]"></div>
+                    </label>
+                  </div>
+                </div>
               </div>
             )}
 

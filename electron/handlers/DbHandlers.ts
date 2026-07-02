@@ -215,6 +215,36 @@ export function registerDbHandlers(ipcMain: any) {
     },
   );
 
+  ipcMain.handle(
+    "db:archiveProject",
+    async (_, vaultPath: string, projectId: string) => {
+      try {
+        if (!vaultPath) throw new Error("Vault path not set");
+        await runDb("UPDATE projects SET is_archived = 1 WHERE id = ?", [
+          projectId,
+        ]);
+        return { success: true };
+      } catch (error: any) {
+        return { success: false, error: error.message };
+      }
+    },
+  );
+
+  ipcMain.handle(
+    "db:unarchiveProject",
+    async (_, vaultPath: string, projectId: string) => {
+      try {
+        if (!vaultPath) throw new Error("Vault path not set");
+        await runDb("UPDATE projects SET is_archived = 0 WHERE id = ?", [
+          projectId,
+        ]);
+        return { success: true };
+      } catch (error: any) {
+        return { success: false, error: error.message };
+      }
+    },
+  );
+
   // Notes CRUD
   ipcMain.handle(
     "db:getNoteContent",
@@ -343,7 +373,22 @@ export function registerDbHandlers(ipcMain: any) {
         }
 
         if (note.content !== undefined) {
-          await atomicWrite(newFilePath, note.content || "", {
+          let finalContent = note.content || "";
+          try {
+            const settingRow = await getDb(
+              "SELECT value FROM settings WHERE key = 'autoFormatOnSave'",
+            ).then((r: any) => r[0]);
+            if (settingRow && settingRow.value === "true") {
+              const prettier = customRequire("prettier");
+              finalContent = await prettier.format(finalContent, {
+                parser: "markdown",
+              });
+            }
+          } catch (e) {
+            console.error("Prettier formatting failed", e);
+          }
+          (note as any).finalContentToReturn = finalContent;
+          await atomicWrite(newFilePath, finalContent, {
             encoding: "utf-8",
           });
           try {
@@ -355,6 +400,7 @@ export function registerDbHandlers(ipcMain: any) {
             if (await git.checkIsRepo()) {
               const relativePath = path.relative(vaultPath, newFilePath);
               await git.add(relativePath);
+              await git.commit(`Update note: ${note.title}`, [relativePath]);
             }
           } catch (e) {
             console.error("Auto-commit failed:", e);
@@ -376,7 +422,13 @@ export function registerDbHandlers(ipcMain: any) {
         );
       }
 
-      return { success: true };
+      return {
+        success: true,
+        formattedContent:
+          note.content !== undefined
+            ? (note as any).finalContentToReturn
+            : undefined,
+      };
     } catch (error: any) {
       await runDb("ROLLBACK").catch(() => {});
       return { success: false, error: error.message };

@@ -40,6 +40,7 @@ export interface Project {
   pdf_path?: string | null;
   instructor?: string | null;
   platform?: string | null;
+  is_archived?: number;
 }
 
 export interface ActivityLog {

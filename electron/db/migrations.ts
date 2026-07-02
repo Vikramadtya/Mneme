@@ -105,6 +105,25 @@ export const migrations: Migration[] = [
       );
     },
   },
+  {
+    version: 5,
+    name: "add_vault_path_to_settings",
+    up: (db) => {
+      // Nothing needed, handled in app
+    },
+  },
+  {
+    version: 6,
+    name: "add_is_archived_to_projects",
+    up: (db) => {
+      const projectCols = db.pragma("table_info(projects)") as any[];
+      if (!projectCols.some((r) => r.name === "is_archived")) {
+        db.exec(
+          "ALTER TABLE projects ADD COLUMN is_archived INTEGER DEFAULT 0",
+        );
+      }
+    },
+  },
 ];
 
 export function runMigrations(db: Database.Database) {
