@@ -72,6 +72,15 @@ export function RightSidebar() {
     (n: any) => n.flashcard?.question,
   ).length;
 
+  const contextDueReviews = React.useMemo(() => {
+    const todayStr = new Date().toISOString().split("T")[0];
+    return contextNotes.filter(
+      (n: any) =>
+        n.flashcard?.question &&
+        (!n.flashcard.nextReviewDate || n.flashcard.nextReviewDate <= todayStr),
+    ).length;
+  }, [contextNotes]);
+
   // Notes-by-date for calendar dots
   const notesByDate = React.useMemo(() => {
     const map: Record<string, number> = {};
@@ -90,27 +99,34 @@ export function RightSidebar() {
     calYear === now.getFullYear() && calMonth === now.getMonth();
   const todayDate = now.getDate();
 
-  const calDays: React.ReactNode[] = [];
-  for (let i = 0; i < firstDay; i++) calDays.push(<div key={`e-${i}`} />);
-  for (let d = 1; d <= daysInMonth; d++) {
-    const dateStr = `${calYear}-${String(calMonth + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-    const noteCount = notesByDate[dateStr] || 0;
-    const isToday = isCurrentMonth && d === todayDate;
-    calDays.push(
-      <div key={d} className="flex flex-col items-center justify-center py-1">
+  const calDays = [
+    ...Array.from({ length: firstDay }).map((_, i) => (
+      <div key={`empty-${i}`} />
+    )),
+    ...Array.from({ length: daysInMonth }).map((_, i) => {
+      const d = i + 1;
+      const dateStr = `${calYear}-${String(calMonth + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+      const noteCount = notesByDate[dateStr] || 0;
+      const isToday = isCurrentMonth && d === todayDate;
+      return (
         <div
-          className={`w-6 h-6 flex items-center justify-center rounded-full text-xs ${isToday ? "bg-[#eab308] text-white font-bold shadow-sm" : "hover:bg-[#e4e4e7] dark:hover:bg-[#333336] cursor-pointer text-foreground"}`}
+          key={`day-${d}`}
+          className="flex flex-col items-center justify-center py-1"
         >
-          {d}
-        </div>
-        {noteCount > 0 && (
-          <div className="text-[9px] text-[#007aff] font-bold mt-0.5">
-            {noteCount}
+          <div
+            className={`w-6 h-6 flex items-center justify-center rounded-full text-xs ${isToday ? "bg-[#eab308] text-white font-bold shadow-sm" : "hover:bg-[#e4e4e7] dark:hover:bg-[#333336] cursor-pointer text-foreground"}`}
+          >
+            {d}
           </div>
-        )}
-      </div>,
-    );
-  }
+          {noteCount > 0 && (
+            <div className="text-[9px] text-[#007aff] font-bold mt-0.5">
+              {noteCount}
+            </div>
+          )}
+        </div>
+      );
+    }),
+  ];
 
   const monthLabel = new Date(calYear, calMonth, 1).toLocaleDateString(
     undefined,
@@ -271,7 +287,7 @@ export function RightSidebar() {
                       Due Reviews
                     </span>
                     <span className="text-sm font-bold text-zinc-800 dark:text-gray-200">
-                      {dueReviewNotes.length}
+                      {contextDueReviews}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">

@@ -12,7 +12,7 @@ import {
   ChevronDown,
   FileText,
 } from "lucide-react";
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useMemo } from "react";
 import { MarkdownRenderer } from "./MarkdownRenderer";
 
 import { CmdKPalette } from "./CmdKPalette";
@@ -120,6 +120,32 @@ export function AppContent() {
     fgRef,
     setSettingsOpen,
   } = useAppController();
+
+  const heatmapData = useMemo(() => {
+    const data = [];
+    const today = new Date();
+    const startOfYear = new Date(today.getFullYear(), 0, 1);
+    const endOfYear = new Date(today.getFullYear(), 11, 31);
+
+    const logMap = new Map(
+      (activityLogs || []).map((l: any) => [l.date, l.count]),
+    );
+
+    for (
+      let d = new Date(startOfYear);
+      d <= endOfYear;
+      d.setDate(d.getDate() + 1)
+    ) {
+      const dateStr = d.toISOString().split("T")[0];
+      const count = logMap.get(dateStr) || 0;
+      data.push({
+        date: dateStr,
+        count,
+        level: Math.min(4, Math.ceil(count / 2)),
+      });
+    }
+    return data;
+  }, [activityLogs]);
 
   if (isAppReady && !vaultPath) {
     return <WelcomeScreen onSelectVault={handleSelectVault} />;
@@ -488,41 +514,65 @@ export function AppContent() {
                           Contribution Heatmap
                         </h3>
                         <div className="overflow-x-auto pb-4">
-                          <ActivityCalendar
-                            data={
-                              activityLogs.length > 0
-                                ? activityLogs.map((l: any) => ({
-                                    date: l.date,
-                                    count: l.count,
-                                    level: Math.min(4, Math.ceil(l.count / 2)),
-                                  }))
-                                : [
-                                    {
-                                      date: new Date()
-                                        .toISOString()
-                                        .split("T")[0],
-                                      count: 0,
-                                      level: 0,
-                                    },
-                                  ]
+                          <ErrorBoundary
+                            fallback={
+                              <div className="text-sm text-gray-400">
+                                Failed to load heatmap
+                              </div>
                             }
-                            theme={{
-                              light: [
-                                "#ebedf0",
-                                "#9be9a8",
-                                "#40c463",
-                                "#30a14e",
-                                "#216e39",
-                              ],
-                              dark: [
-                                "#333336",
-                                "#0e4429",
-                                "#006d32",
-                                "#26a641",
-                                "#39d353",
-                              ],
-                            }}
-                          />
+                          >
+                            <ActivityCalendar
+                              data={heatmapData}
+                              theme={{
+                                light: [
+                                  "#ebedf0",
+                                  "#9be9a8",
+                                  "#40c463",
+                                  "#30a14e",
+                                  "#216e39",
+                                ],
+                                dark: [
+                                  "#333336",
+                                  "#0e4429",
+                                  "#006d32",
+                                  "#26a641",
+                                  "#39d353",
+                                ],
+                              }}
+                              colorScheme={
+                                typeof document !== "undefined" &&
+                                document.documentElement.classList.contains(
+                                  "dark",
+                                )
+                                  ? "dark"
+                                  : "light"
+                              }
+                              labels={{
+                                legend: {
+                                  less: "Less",
+                                  more: "More",
+                                  colors: [],
+                                },
+                                months: [
+                                  "Jan",
+                                  "Feb",
+                                  "Mar",
+                                  "Apr",
+                                  "May",
+                                  "Jun",
+                                  "Jul",
+                                  "Aug",
+                                  "Sep",
+                                  "Oct",
+                                  "Nov",
+                                  "Dec",
+                                ],
+                                totalCount:
+                                  "{{count}} contributions in " +
+                                  new Date().getFullYear(),
+                              }}
+                            />
+                          </ErrorBoundary>
                         </div>
                       </div>
                     </div>

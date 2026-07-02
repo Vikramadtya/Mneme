@@ -34,7 +34,15 @@ export class ErrorBoundary extends Component<Props, State> {
         this.props.fallback || (
           <div className="p-4 bg-red-50 text-red-600 rounded-lg border border-red-200 m-4 flex flex-col items-center justify-center">
             <h2 className="font-bold mb-2">Something went wrong.</h2>
-            <p className="text-sm">Please refresh the application.</p>
+            <p className="text-sm mb-4">
+              A component failed to render properly.
+            </p>
+            <button
+              onClick={() => this.setState({ hasError: false })}
+              className="px-3 py-1.5 bg-red-100 hover:bg-red-200 text-red-700 text-xs font-medium rounded-md transition-colors"
+            >
+              Try Again
+            </button>
           </div>
         )
       );

@@ -176,10 +176,20 @@ export function useUIState(
       if (fullNoteForIpc && vaultPath) {
         ipc
           .saveNote(vaultPath, fullNoteForIpc)
-          .then((res: any) => {
+          .then(async (res: any) => {
             if (res.success && res.formattedContent !== undefined) {
               setEditNoteContent(res.formattedContent);
             }
+            // Log edit activity
+            await ipc.logActivity(
+              vaultPath,
+              new Date().toISOString().split("T")[0],
+              "edit",
+            );
+
+            const { useReviewStore } = require("../store/reviewStore");
+            const logsRes = await ipc.getActivityLogs(vaultPath);
+            useReviewStore.getState().setActivityLogs(logsRes?.data || []);
           })
           .catch((e: any) => {
             console.error("Failed to save note background", e);
