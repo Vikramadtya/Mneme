@@ -94,8 +94,36 @@ export function registerGitHandlers(ipcMain: any) {
         if (!isRepo) throw new Error("Not a git repository");
 
         const relativePath = path.relative(vaultPath, notePath);
-        const content = await git.show([`${hash}:${relativePath}`]);
-        return { success: true, data: content };
+        let targetPath = relativePath;
+        try {
+          const content = await git.show([`${hash}:${targetPath}`]);
+          return { success: true, data: content };
+        } catch (e) {
+          // File might have been renamed, find historic path
+          const logStr = await git.raw([
+            "log",
+            "--follow",
+            "--name-only",
+            "--format=%H",
+            "--",
+            relativePath,
+          ]);
+          const lines = logStr
+            .split("\n")
+            .map((l: string) => l.trim())
+            .filter(Boolean);
+          let currentHash = "";
+          for (const line of lines) {
+            if (/^[0-9a-f]{40}$/.test(line)) {
+              currentHash = line;
+            } else if (currentHash === hash) {
+              targetPath = line;
+              break;
+            }
+          }
+          const content = await git.show([`${hash}:${targetPath}`]);
+          return { success: true, data: content };
+        }
       } catch (error: any) {
         return { success: false, error: error.message };
       }

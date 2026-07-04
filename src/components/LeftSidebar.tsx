@@ -384,7 +384,7 @@ export function LeftSidebar() {
                                     </div>
                                   )}
                                   <div
-                                    className={`w-2 h-2 rounded-full ${p.color} ${!sidebarCollapsed ? "mr-2" : ""} flex-shrink-0`}
+                                    className={`w-2 h-2 rounded-full ${activeProjectId === p.id || p.chapters?.some((c: any) => c.id === activeProjectId) ? p.color : "bg-gray-300 dark:bg-zinc-700"} ${!sidebarCollapsed ? "mr-2" : ""} flex-shrink-0 transition-colors`}
                                   ></div>
                                   {!sidebarCollapsed &&
                                     (renamingProjectId === p.id ? (
@@ -444,10 +444,16 @@ export function LeftSidebar() {
                                             }}
                                             className={`w-full flex items-center ${sidebarCollapsed ? "justify-center px-0" : "pl-10 pr-6"} py-1.5 text-[12px] rounded-xl transition-colors ${activeProjectId === c.id && activeTab === "project" ? "bg-[#e4e4e7] dark:bg-white/5 text-[#1c1c1e] dark:text-white font-medium" : "hover:bg-accent hover:text-accent-foreground text-[#71717a] dark:text-gray-400"}`}
                                           >
-                                            <CircleDashed
-                                              size={10}
-                                              className={`${!sidebarCollapsed ? "mr-2" : ""} opacity-50 flex-shrink-0`}
-                                            />
+                                            {activeProjectId === c.id ? (
+                                              <div
+                                                className={`w-1.5 h-1.5 rounded-full ${p.color} ${!sidebarCollapsed ? "mr-2" : ""} flex-shrink-0 transition-colors`}
+                                              />
+                                            ) : (
+                                              <CircleDashed
+                                                size={10}
+                                                className={`${!sidebarCollapsed ? "mr-2" : ""} opacity-50 flex-shrink-0`}
+                                              />
+                                            )}
                                             {!sidebarCollapsed && (
                                               <span className="truncate">
                                                 {c.name}

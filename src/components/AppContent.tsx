@@ -741,7 +741,7 @@ export function AppContent() {
                     <>
                       {/* Add Note Area */}
                       {activeTab === AppTab.PROJECT && activeProject && (
-                        <div className="bg-card rounded-xl shadow-sm border border-border p-4 flex flex-col gap-3 transition-shadow focus-within:shadow-md focus-within:border-[#007aff]/50">
+                        <div className="bg-card rounded-xl shadow-sm border border-border p-4 flex flex-col gap-3">
                           <input
                             type="text"
                             value={newNoteTitle}
@@ -812,7 +812,21 @@ export function AppContent() {
                               />
                             </div>
                             <button
-                              onClick={() => handleAddNote(activeProject?.id!)}
+                              onClick={() => {
+                                handleAddNote(
+                                  activeProject?.id!,
+                                  newNoteTitle,
+                                  newNoteContent,
+                                  newNoteDate,
+                                  newNoteTags,
+                                );
+                                setNewNoteTitle("");
+                                setNewNoteContent("");
+                                setNewNoteTags("");
+                                setNewNoteDate(
+                                  new Date().toISOString().split("T")[0],
+                                );
+                              }}
                               disabled={!newNoteContent.trim()}
                               className="bg-[#007aff] text-white px-4 py-1.5 rounded-md text-sm font-medium hover:bg-blue-600 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
                             >

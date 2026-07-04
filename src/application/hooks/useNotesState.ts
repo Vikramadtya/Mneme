@@ -127,11 +127,11 @@ export function useNotesState(
       if (!vaultPath) return;
       try {
         const pId = nanoid();
-        await (ipc as any).createProject(vaultPath, {
+        await ipc.saveProject(vaultPath, {
           id: pId,
           name: "New " + type,
           type,
-        });
+        } as any);
         await loadDataFromVault(vaultPath);
         setActiveProjectId(pId);
         showToast(`Created new ${type}`, "success");
@@ -183,11 +183,12 @@ export function useNotesState(
       if (!vaultPath) return;
       try {
         const chapterId = nanoid();
-        await (ipc as any).createChapter(vaultPath, projectId, {
+        await ipc.saveProject(vaultPath, {
           id: chapterId,
           name: customName || "New Chapter",
           type: "chapter",
-        });
+          parent_id: projectId,
+        } as any);
         await loadDataFromVault(vaultPath);
         setActiveProjectId(chapterId);
         showToast("Chapter created", "success");
@@ -199,11 +200,19 @@ export function useNotesState(
   );
 
   const handleAddNote = useCallback(
-    async (projectId: string) => {
+    async (
+      projectId: string,
+      title?: string,
+      content?: string,
+      date?: string,
+      tagsStr?: string,
+    ) => {
       if (!vaultPath) return;
       try {
         const now = new Date();
-        const dStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+        const dStr =
+          date ||
+          `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
         const newNote: Note = {
           id: nanoid(),
           date: dStr,
@@ -211,9 +220,14 @@ export function useNotesState(
             hour: "2-digit",
             minute: "2-digit",
           }),
-          title: "Quick Note",
-          content: "",
-          tags: [],
+          title: title || "Quick Note",
+          content: content || "",
+          tags: tagsStr
+            ? tagsStr
+                .split(",")
+                .map((t) => t.trim())
+                .filter(Boolean)
+            : [],
           favourite: false,
           chapterId: isRootProject ? undefined : activeProject?.id,
           project_id: isRootProject ? activeProject?.id : undefined,
@@ -227,8 +241,8 @@ export function useNotesState(
         );
 
         setFocusedNoteId(newNote.id);
-        (ipc as any)
-          .createNote(vaultPath, projectId, newNote)
+        ipc
+          .saveNote(vaultPath, newNote)
           .then(() => ipc.logActivity(vaultPath, dStr, "create"))
           .catch((e) =>
             showToast("Failed to save note: " + e.message, "error"),

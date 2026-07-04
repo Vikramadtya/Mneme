@@ -34,7 +34,7 @@ export function MemoriserEditor({
       : "light";
 
   return (
-    <div className="w-full bg-background border border-border rounded-xl p-2 min-h-[60vh] overflow-hidden focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/20 transition-all">
+    <div className="w-full bg-transparent min-h-[60vh] overflow-hidden px-10 py-6">
       <CodeMirror
         ref={editorRef as any}
         value={value}

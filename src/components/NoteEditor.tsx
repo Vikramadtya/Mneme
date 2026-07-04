@@ -64,7 +64,7 @@ export function NoteEditor({ note }: { note: any }) {
       uiShowToast("No vault open", "error");
       return;
     }
-    setActiveHistoryNote(note);
+    setActiveHistoryNote({ ...note, content: viewContent });
     setIsHistoryOpen(true);
     const res = await ipc.getFileHistory(vaultPath, note.id);
     if (res.success) {

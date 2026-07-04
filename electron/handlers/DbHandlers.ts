@@ -156,55 +156,62 @@ export function registerDbHandlers(ipcMain: any) {
           ],
         );
 
-        if (oldProj && vaultPath) {
-          const nameChanged = oldProj.name !== project.name;
-          const parentChanged = oldProj.parent_id !== project.parent_id;
+        if (vaultPath) {
+          const allProjects = await getDb("SELECT * FROM projects");
+          const projMap = allProjects.reduce((acc: any, p: any) => {
+            acc[p.id] = p;
+            return acc;
+          }, {});
 
-          if (nameChanged || parentChanged) {
-            const allProjects = await getDb("SELECT * FROM projects");
-            const projMap = allProjects.reduce((acc: any, p: any) => {
-              acc[p.id] = p;
-              return acc;
-            }, {});
-
-            function buildPath(
-              id: string,
-              overrideName?: string,
-              overrideParentId?: string | null,
-            ): string {
-              const p = projMap[id];
-              if (!p) return "";
-              const name = overrideName !== undefined ? overrideName : p.name;
-              const parentId =
-                overrideParentId !== undefined ? overrideParentId : p.parent_id;
-              if (!parentId) {
-                const typeDir = p.type === "course" ? "Courses" : "Books";
-                return path.join(typeDir, sanitize(name));
-              }
-              return path.join(buildPath(parentId), sanitize(name));
+          function buildPath(
+            id: string,
+            overrideName?: string,
+            overrideParentId?: string | null,
+          ): string {
+            const p = projMap[id];
+            if (!p) return "";
+            const name = overrideName !== undefined ? overrideName : p.name;
+            const parentId =
+              overrideParentId !== undefined ? overrideParentId : p.parent_id;
+            if (!parentId) {
+              const typeDir = p.type === "course" ? "Courses" : "Books";
+              return path.join(typeDir, sanitize(name));
             }
+            return path.join(buildPath(parentId), sanitize(name));
+          }
 
-            const base = path.join(vaultPath, "docs");
-            const oldRelPath = buildPath(
-              oldProj.id,
-              oldProj.name,
-              oldProj.parent_id,
-            );
-            // Notice: project is already saved in DB above, so projMap has the NEW values!
-            // But just in case, we pass overrides
-            const newRelPath = buildPath(
-              project.id,
-              project.name,
-              project.parent_id || null,
-            );
+          const base = path.join(vaultPath, "docs");
+          const newRelPath = buildPath(
+            project.id,
+            project.name,
+            project.parent_id || null,
+          );
+          const newPath = path.join(base, newRelPath);
 
-            const oldPath = path.join(base, oldRelPath);
-            const newPath = path.join(base, newRelPath);
+          if (oldProj) {
+            const nameChanged = oldProj.name !== project.name;
+            const parentChanged = oldProj.parent_id !== project.parent_id;
 
-            if ((await exists(oldPath)) && oldPath !== newPath) {
+            if (nameChanged || parentChanged) {
+              const oldRelPath = buildPath(
+                oldProj.id,
+                oldProj.name,
+                oldProj.parent_id,
+              );
+              const oldPath = path.join(base, oldRelPath);
+
+              if ((await exists(oldPath)) && oldPath !== newPath) {
+                await fs
+                  .rename(oldPath, newPath)
+                  .catch((e) => console.error("Rename failed:", e));
+              }
+            }
+          } else {
+            // New project: create the directory
+            if (!(await exists(newPath))) {
               await fs
-                .rename(oldPath, newPath)
-                .catch((e) => console.error("Rename failed:", e));
+                .mkdir(newPath, { recursive: true })
+                .catch((e) => console.error("Mkdir failed:", e));
             }
           }
         }

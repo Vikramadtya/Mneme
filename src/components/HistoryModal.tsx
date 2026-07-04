@@ -40,13 +40,16 @@ export function HistoryModal() {
 
   return (
     <Dialog open={isHistoryOpen} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-[95vw] sm:max-w-6xl w-full h-[85vh] p-0 flex flex-row overflow-hidden gap-0 bg-card rounded-xl border-border sm:rounded-xl">
+      <DialogContent
+        showCloseButton={false}
+        className="max-w-[95vw] sm:max-w-6xl w-full h-[85vh] p-0 flex flex-row overflow-hidden gap-0 bg-card rounded-xl border-border sm:rounded-xl"
+      >
         <DialogTitle className="sr-only">Note History</DialogTitle>
         <DialogDescription className="sr-only">
           View history of the selected note.
         </DialogDescription>
         {/* Sidebar (List of commits) */}
-        <div className="w-[300px] border-r border-border bg-[#f4f4f5]/50 dark:bg-[#1a1a1c]/50 flex flex-col">
+        <div className="w-[300px] border-r border-border bg-[#f4f4f5]/50 dark:bg-[#1a1a1c]/50 flex flex-col flex-shrink-0">
           <div className="p-4 border-b border-border flex items-center justify-between">
             <h3 className="font-bold text-[#1c1c1e] dark:text-white flex items-center">
               <History size={18} className="mr-2 text-purple-500" /> Note
@@ -85,14 +88,14 @@ export function HistoryModal() {
         </div>
 
         {/* Main Content (Viewer) */}
-        <div className="flex-1 flex flex-col bg-card">
-          <div className="p-4 border-b border-border flex items-center justify-between">
-            <h3 className="font-bold text-[#1c1c1e] dark:text-white">
+        <div className="flex-1 flex flex-col bg-card min-w-0">
+          <div className="p-4 border-b border-border flex items-center justify-between flex-shrink-0">
+            <h3 className="font-bold text-[#1c1c1e] dark:text-white truncate pr-4">
               {viewingCommitHash
                 ? `Viewing Revision ${viewingCommitHash.substring(0, 7)}`
                 : "Select a revision"}
             </h3>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-shrink-0">
               {viewingCommitHash && (
                 <div className="flex bg-accent rounded-md p-0.5 mr-2">
                   <button
@@ -112,20 +115,20 @@ export function HistoryModal() {
               {viewingCommitHash && (
                 <button
                   onClick={() => handleRestoreCommit(activeHistoryNote)}
-                  className="bg-purple-500 text-white px-4 py-1.5 rounded-md text-sm font-medium hover:bg-purple-600 transition-colors"
+                  className="bg-purple-500 text-white px-4 py-1.5 rounded-md text-sm font-medium hover:bg-purple-600 transition-colors whitespace-nowrap"
                 >
                   Restore This Version
                 </button>
               )}
               <button
                 onClick={() => setIsHistoryOpen(false)}
-                className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 ml-2"
               >
                 <X size={20} />
               </button>
             </div>
           </div>
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto min-h-0">
             {viewingCommitHash ? (
               historicalContent === null ? (
                 <div className="text-gray-500 flex justify-center mt-10">
@@ -140,8 +143,13 @@ export function HistoryModal() {
                   {viewMode === "diff" ? (
                     <div className="h-full bg-white dark:bg-[#1e1e1e] overflow-auto text-sm">
                       <ReactDiffViewer
-                        oldValue={String(historicalContent || "")}
-                        newValue={String(activeHistoryNote.content || "")}
+                        oldValue={String(historicalContent || "").replace(
+                          /\r\n/g,
+                          "\n",
+                        )}
+                        newValue={String(
+                          activeHistoryNote.content || "",
+                        ).replace(/\r\n/g, "\n")}
                         splitView={true}
                         compareMethod={DiffMethod.WORDS}
                         useDarkTheme={
