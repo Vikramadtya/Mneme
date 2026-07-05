@@ -17,6 +17,9 @@ export interface IpcHandlers {
   "db:saveSetting": (key: string, value: string) => Promise<IpcResponse>;
   "db:saveSettings": (settings: any) => Promise<IpcResponse>;
   "git:sync": (vaultPath: string) => Promise<IpcResponse>;
+  "git:status": (vaultPath: string) => Promise<IpcResponse<any>>;
+  "git:commitAll": (vaultPath: string, message: string) => Promise<IpcResponse>;
+  "git:squashHistory": (vaultPath: string) => Promise<IpcResponse>;
   "git:commitLocal": (vaultPath: string) => Promise<IpcResponse>;
   "app:getConfig": () => Promise<any>;
   "app:setConfig": (config: any) => Promise<IpcResponse>;

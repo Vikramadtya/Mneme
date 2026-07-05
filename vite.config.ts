@@ -4,6 +4,7 @@ import electron from "vite-plugin-electron/simple";
 import reactSWC from "@vitejs/plugin-react-swc";
 import tailwindcss from "@tailwindcss/vite";
 import AutoImport from "unplugin-auto-import/vite";
+import checker from "vite-plugin-checker";
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -27,6 +28,7 @@ export default defineConfig({
   plugins: [
     tailwindcss(),
     reactSWC(),
+    checker({ typescript: true }),
     AutoImport({
       imports: ["react"],
       dts: true,

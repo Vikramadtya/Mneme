@@ -1,5 +1,6 @@
-import React from "react";
+import React, { useState } from "react";
 import { X, Settings } from "lucide-react";
+import { ipc } from "../ipc";
 
 import { useVault, useUI } from "../application/context";
 import {
@@ -23,6 +24,31 @@ export function SettingsModal() {
   const settingsTab = useUI((s) => s.settingsTab);
   const setSettingsTab = useUI((s) => s.setSettingsTab);
   const handleSaveSettings = useUI((s) => s.handleSaveSettings);
+  const showToast = useUI((s) => s.showToast);
+
+  const [isSquashing, setIsSquashing] = useState(false);
+
+  const handleSquashHistory = async () => {
+    if (!vaultPath) return;
+    const confirmed = window.confirm(
+      "Are you sure you want to squash your Git history? This will permanently collapse all past commits into a single initial commit and force-push to your remote repository. This action is destructive and cannot be undone.",
+    );
+    if (!confirmed) return;
+
+    setIsSquashing(true);
+    try {
+      const res = await ipc.invoke("git:squashHistory", vaultPath);
+      if (res.success) {
+        showToast("Git history squashed successfully!", "success");
+      } else {
+        showToast("Squash failed: " + res.error, "error");
+      }
+    } catch (e: any) {
+      showToast("Squash failed: " + e.message, "error");
+    } finally {
+      setIsSquashing(false);
+    }
+  };
 
   if (!vaultSettings) return null;
 
@@ -380,6 +406,32 @@ export function SettingsModal() {
                         placeholder="you@example.com"
                       />
                     </div>
+                  </div>
+                </div>
+
+                <hr className="border-border" />
+
+                <div>
+                  <h3 className="text-base font-bold text-red-500 mb-1">
+                    Danger Zone
+                  </h3>
+                  <div className="flex items-center justify-between bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-900/30 rounded-lg p-4">
+                    <div>
+                      <p className="text-sm font-semibold text-red-700 dark:text-red-400">
+                        Squash Git History
+                      </p>
+                      <p className="text-xs text-red-600/80 dark:text-red-400/80 mt-0.5">
+                        Compact all past commits into a single "Initial commit"
+                        to clean up messy history.
+                      </p>
+                    </div>
+                    <button
+                      onClick={handleSquashHistory}
+                      disabled={isSquashing}
+                      className="px-4 py-2 text-sm font-semibold rounded-lg bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-900/50 transition-colors disabled:opacity-50"
+                    >
+                      {isSquashing ? "Squashing..." : "Squash History"}
+                    </button>
                   </div>
                 </div>
               </div>

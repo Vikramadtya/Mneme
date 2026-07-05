@@ -61,6 +61,75 @@ export function registerGitHandlers(ipcMain: any) {
     },
   );
 
+  typedIpcHandle("git:squashHistory", async (_, vaultPath: string) => {
+    try {
+      if (!vaultPath) throw new Error("Vault path not set");
+      let git = gitCache.get(vaultPath);
+      if (!git) {
+        git = customRequire("simple-git")(vaultPath);
+        gitCache.set(vaultPath, git);
+      }
+      const isRepo = await git.checkIsRepo();
+      if (!isRepo) throw new Error("Not a git repository");
+
+      const branchSummary = await git.branch();
+      const currentBranch = branchSummary.current || "main";
+
+      await git.checkout(["--orphan", "temp_squash_branch"]);
+      await git.add(".");
+      await git.commit("Initial commit (Squashed)");
+
+      await git.branch(["-D", currentBranch]);
+      await git.branch(["-m", currentBranch]);
+
+      const settingsRows = await getDb(
+        "SELECT key, value FROM settings WHERE key IN ('gitRemoteUrl', 'gitGithubToken')",
+      );
+
+      let remoteUrl: string | null = null;
+      let githubToken: string | null = null;
+
+      for (const row of settingsRows) {
+        if (row.key === "gitRemoteUrl") remoteUrl = row.value;
+        if (row.key === "gitGithubToken") {
+          let val = row.value;
+          if (val && safeStorage.isEncryptionAvailable()) {
+            try {
+              val = safeStorage.decryptString(Buffer.from(val, "base64"));
+            } catch (e) {
+              console.error(e);
+            }
+          }
+          githubToken = val;
+        }
+      }
+
+      if (remoteUrl) {
+        const remotes = await git.getRemotes();
+        if (!remotes.find((r: any) => r.name === "origin")) {
+          await git.addRemote("origin", remoteUrl);
+        } else {
+          await git.remote(["set-url", "origin", remoteUrl]);
+        }
+
+        let pushUrl = remoteUrl;
+        if (githubToken && remoteUrl.startsWith("https://")) {
+          try {
+            const urlObj = new URL(remoteUrl);
+            pushUrl = urlObj.toString();
+          } catch (e) {
+            console.error(e);
+          }
+        }
+        await git.push(pushUrl, currentBranch, ["--set-upstream", "--force"]);
+      }
+
+      return { success: true };
+    } catch (e: any) {
+      return { success: false, error: e.message };
+    }
+  });
+
   typedIpcHandle("git:getVaultHistory", async (_, vaultPath: string) => {
     const homeDir = app.getPath("home");
     if (vaultPath && !vaultPath.startsWith(homeDir)) {
