@@ -27,7 +27,7 @@ export function BooksLibrary() {
   const handleOpenUrl = async (e: React.MouseEvent, book: Project) => {
     e.stopPropagation();
     if (book.url) {
-      await ipc.openExternal(book.url);
+      await ipc.invoke("app:openExternal", book.url);
     }
   };
 

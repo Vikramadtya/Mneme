@@ -1,11 +1,12 @@
 import { app } from "electron";
+import { typedIpcHandle } from "../typedIpc";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { exists } from "../ipcHandlers";
 import { atomicWrite } from "../utils/atomicWrite";
 
 export function registerFsHandlers(ipcMain: any) {
-  ipcMain.handle("fs:readMkdocsConfig", async (_, vaultPath: string) => {
+  typedIpcHandle("fs:readMkdocsConfig", async (_, vaultPath: string) => {
     const homeDir = app.getPath("home");
     if (vaultPath && !vaultPath.startsWith(homeDir)) {
       throw new Error(
@@ -26,7 +27,7 @@ export function registerFsHandlers(ipcMain: any) {
     }
   });
 
-  ipcMain.handle(
+  typedIpcHandle(
     "fs:saveMkdocsConfig",
     async (_, vaultPath: string, content: string) => {
       try {

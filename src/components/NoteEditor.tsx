@@ -66,7 +66,7 @@ export function NoteEditor({ note }: { note: any }) {
     }
     setActiveHistoryNote({ ...note, content: viewContent });
     setIsHistoryOpen(true);
-    const res = await ipc.getFileHistory(vaultPath, note.id);
+    const res = await ipc.invoke("git:getFileHistory", vaultPath, note.id);
     if (res.success) {
       setNoteHistory(res.data || []);
     }
@@ -92,7 +92,7 @@ export function NoteEditor({ note }: { note: any }) {
     if (vaultPath && note.id) {
       setIsLoadingContent(true);
       setViewContent(note.content || "");
-      ipc.getNoteContent(vaultPath, note.id).then((res: any) => {
+      ipc.invoke("db:getNoteContent", vaultPath, note.id).then((res: any) => {
         if (res.success && typeof res.data === "string") {
           setViewContent(res.data);
         }
@@ -114,11 +114,26 @@ export function NoteEditor({ note }: { note: any }) {
     setEditNoteContent(val);
   }, 150);
 
+  const localContentRef = useRef(localContent);
+  useEffect(() => {
+    localContentRef.current = localContent;
+  }, [localContent]);
+
   const debouncedSave = useDebouncedCallback(() => {
-    saveEdit(false);
+    saveEdit(false, localContentRef.current);
     setShowToast(true);
     setTimeout(() => setShowToast(false), 2000);
   }, 1500);
+
+  // Flush any pending save when NoteEditor unmounts (e.g. switching notes) or app quits
+  useEffect(() => {
+    const handleBeforeUnload = () => debouncedSave.flush();
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => {
+      debouncedSave.flush();
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [debouncedSave]);
 
   // 1.1 Auto-save on blur / debounce
   useEffect(() => {
@@ -153,8 +168,7 @@ export function NoteEditor({ note }: { note: any }) {
   };
 
   // 1.3 Paste image from clipboard
-  const handlePaste = (e: any) => {
-    // Both standard DOM ClipboardEvent and React's SyntheticClipboardEvent have clipboardData
+  const handlePaste = async (e: any) => {
     const clipboardData =
       e.clipboardData || (e.originalEvent && e.originalEvent.clipboardData);
     const items = clipboardData?.items;
@@ -164,13 +178,59 @@ export function NoteEditor({ note }: { note: any }) {
       if (items[i].type.indexOf("image") !== -1) {
         e.preventDefault();
         const file = items[i].getAsFile();
-        if (file) {
-          const fakeEvent = {
-            preventDefault: () => {},
-            dataTransfer: { files: [file] },
-          } as any;
-          handleDrop(fakeEvent, true);
+        if (file && vaultPath) {
+          try {
+            const buffer = await file.arrayBuffer();
+            const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
+            const res = await ipc.invoke(
+              "fs:saveAsset",
+              vaultPath,
+              `${Math.random().toString(36).substring(7)}_${sanitizedName}`,
+              buffer,
+              note.project_id || (note as any).chapterId,
+            );
+            if (res.success && res.url) {
+              const markdownAsset = `\n![${file.name}](${encodeURI(res.url)})\n`;
+              insertText(markdownAsset);
+              uiShowToast("Image uploaded", "success");
+            }
+          } catch (err: any) {
+            uiShowToast("Failed to upload image: " + err.message, "error");
+          }
         }
+      }
+    }
+  };
+
+  const handleEditorDrop = async (e: DragEvent) => {
+    e.preventDefault();
+    const file = e.dataTransfer?.files[0];
+    if (
+      !file ||
+      !(file.type.startsWith("image/") || file.type === "application/pdf")
+    )
+      return;
+
+    if (vaultPath) {
+      try {
+        const buffer = await file.arrayBuffer();
+        const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
+        const res = await ipc.invoke(
+          "fs:saveAsset",
+          vaultPath,
+          `${Math.random().toString(36).substring(7)}_${sanitizedName}`,
+          buffer,
+          note.project_id || (note as any).chapterId,
+        );
+
+        if (res.success && res.url) {
+          const isPdf = file.type === "application/pdf";
+          const markdownAsset = `\n${isPdf ? "" : "!"}[${file.name}](${encodeURI(res.url)})\n`;
+          insertText(markdownAsset);
+          uiShowToast("File uploaded", "success");
+        }
+      } catch (err: any) {
+        uiShowToast("Failed to save asset: " + err.message, "error");
       }
     }
   };
@@ -441,7 +501,7 @@ export function NoteEditor({ note }: { note: any }) {
                 value={localContent}
                 onChange={handleContentChange}
                 onPaste={handlePaste}
-                onDrop={(e) => handleDrop(e as any, true)}
+                onDrop={handleEditorDrop}
                 onFocus={() => setFocusedNoteId(note.id)}
                 onBlur={() => setFocusedNoteId(null)}
               />
@@ -564,7 +624,10 @@ export function NoteEditor({ note }: { note: any }) {
                 Close
               </button>
               <button
-                onClick={() => saveEdit(true)}
+                onClick={() => {
+                  debouncedSave.cancel();
+                  saveEdit(true, localContent);
+                }}
                 className="px-4 py-2 rounded-lg font-medium bg-[#007aff] text-white hover:bg-blue-600 flex items-center"
               >
                 <Save size={16} className="mr-2" /> Done

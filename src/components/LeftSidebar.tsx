@@ -168,7 +168,7 @@ export function LeftSidebar() {
     if (!vaultPath) return;
     setIsExporting(true);
     try {
-      const res = await ipc.exportVaultZip(vaultPath);
+      const res = await ipc.invoke("db:exportVaultZip", vaultPath);
       if (res.success && res.data) {
         showToast("Export successful to: " + res.data.filePath);
       } else if (res.error !== "Export canceled") {

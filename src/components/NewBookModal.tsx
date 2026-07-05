@@ -28,7 +28,7 @@ export function NewBookModal() {
 
   const handleSelectPdf = async () => {
     try {
-      const res = await ipc.selectPdf();
+      const res = await ipc.invoke("app:selectPdf");
       if (res.success && res.data) {
         setPdfPath(res.data);
         setPdfFileName(res.data.split("/").pop() || null);
@@ -45,7 +45,7 @@ export function NewBookModal() {
       let finalPdfPath = null;
       if (pdfPath && vaultPath) {
         // Copy the selected PDF into the vault
-        const copyRes = await ipc.copyPdfAsset(vaultPath, pdfPath);
+        const copyRes = await ipc.invoke("fs:copyPdfAsset", vaultPath, pdfPath);
         if (copyRes.success && copyRes.data) {
           finalPdfPath = copyRes.data;
         }
@@ -63,7 +63,7 @@ export function NewBookModal() {
       };
 
       if (vaultPath) {
-        await ipc.saveProject(vaultPath, newProject);
+        await ipc.invoke("db:saveProject", vaultPath, newProject);
       }
 
       setProjects([...projects, newProject]);

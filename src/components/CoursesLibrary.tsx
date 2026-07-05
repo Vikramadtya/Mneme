@@ -22,7 +22,7 @@ export function CoursesLibrary() {
   const handleOpenUrl = async (e: React.MouseEvent, course: Project) => {
     e.stopPropagation();
     if (course.url) {
-      await ipc.openExternal(course.url);
+      await ipc.invoke("app:openExternal", course.url);
     }
   };
 

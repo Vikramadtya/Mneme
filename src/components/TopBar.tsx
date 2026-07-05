@@ -57,7 +57,7 @@ export function TopBar() {
   const handleOpenVaultHistory = async () => {
     setIsVaultHistoryOpen(true);
     if (vaultPath) {
-      const res = await (ipc as any).getVaultHistory(vaultPath);
+      const res = await ipc.invoke("git:getVaultHistory", vaultPath);
       if (res.success) {
         setVaultHistory(res.data || []);
       }

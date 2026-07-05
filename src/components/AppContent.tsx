@@ -14,10 +14,10 @@ import {
 } from "lucide-react";
 import { lazy, Suspense, useMemo } from "react";
 import { MarkdownRenderer } from "./MarkdownRenderer";
-
 import { CmdKPalette } from "./CmdKPalette";
 import { NoteEditor } from "./NoteEditor";
 import { TopBar } from "./TopBar";
+import { ipc } from "../ipc";
 import { RightSidebar } from "./RightSidebar";
 import { LeftSidebar } from "./LeftSidebar";
 import { VaultHistoryModal } from "./VaultHistoryModal";
@@ -26,6 +26,9 @@ import { NewBookModal } from "./NewBookModal";
 import { BooksLibrary } from "./BooksLibrary";
 import { NewCourseModal } from "./NewCourseModal";
 import { NewChapterModal } from "./NewChapterModal";
+import { SettingsModal } from "./SettingsModal";
+import { MarkdownHelpModal } from "./MarkdownHelpModal";
+import { SyncCommitModal } from "./SyncCommitModal";
 import { CoursesLibrary } from "./CoursesLibrary";
 import { ErrorBoundary } from "./ErrorBoundary";
 
@@ -146,6 +149,15 @@ export function AppContent() {
     }
     return data;
   }, [activityLogs]);
+
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
+
+  useEffect(() => {
+    const removeListener = ipc.on("app:open-markdown-help", () => {
+      setIsHelpOpen(true);
+    });
+    return () => removeListener();
+  }, []);
 
   if (isAppReady && !vaultPath) {
     return <WelcomeScreen onSelectVault={handleSelectVault} />;
@@ -952,6 +964,10 @@ export function AppContent() {
         <NewChapterModal />
         <VaultHistoryModal />
         <CmdKPalette />
+        <SyncCommitModal />
+        {isHelpOpen && (
+          <MarkdownHelpModal onClose={() => setIsHelpOpen(false)} />
+        )}
       </div>
     </ErrorBoundary>
   );

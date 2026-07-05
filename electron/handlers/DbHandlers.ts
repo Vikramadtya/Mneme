@@ -1,4 +1,5 @@
 import { safeStorage, app } from "electron";
+import { typedIpcHandle } from "../typedIpc";
 import log from "electron-log/main";
 import { atomicWrite } from "../utils/atomicWrite";
 import fs from "node:fs/promises";
@@ -22,7 +23,7 @@ import { startWatcher, setAppWriting } from "../watcher";
 import { BrowserWindow } from "electron";
 
 export function registerDbHandlers(ipcMain: any) {
-  ipcMain.handle("db:getInitialState", async (_, vaultPath: string) => {
+  typedIpcHandle("db:getInitialState", async (_, vaultPath: string) => {
     const homeDir = app.getPath("home");
     if (vaultPath && !vaultPath.startsWith(homeDir)) {
       throw new Error(
@@ -131,7 +132,7 @@ export function registerDbHandlers(ipcMain: any) {
   });
 
   // Projects CRUD
-  ipcMain.handle(
+  typedIpcHandle(
     "db:saveProject",
     async (_, vaultPath: string, project: any) => {
       try {
@@ -222,7 +223,7 @@ export function registerDbHandlers(ipcMain: any) {
     },
   );
 
-  ipcMain.handle(
+  typedIpcHandle(
     "db:archiveProject",
     async (_, vaultPath: string, projectId: string) => {
       try {
@@ -237,7 +238,7 @@ export function registerDbHandlers(ipcMain: any) {
     },
   );
 
-  ipcMain.handle(
+  typedIpcHandle(
     "db:unarchiveProject",
     async (_, vaultPath: string, projectId: string) => {
       try {
@@ -253,7 +254,7 @@ export function registerDbHandlers(ipcMain: any) {
   );
 
   // Notes CRUD
-  ipcMain.handle(
+  typedIpcHandle(
     "db:getNoteContent",
     async (_, vaultPath: string, noteId: string) => {
       console.log(`[db:getNoteContent] Called for noteId=${noteId}`);
@@ -289,75 +290,125 @@ export function registerDbHandlers(ipcMain: any) {
     },
   );
 
-  ipcMain.handle("db:saveNote", async (_, vaultPath: string, note: any) => {
-    const homeDir = app.getPath("home");
-    if (vaultPath && !vaultPath.startsWith(homeDir)) {
-      throw new Error(
-        "Security Error: vaultPath is outside allowed directories.",
+  typedIpcHandle(
+    "db:saveNote",
+    async (
+      _,
+      vaultPath: string,
+      note: any,
+      isExplicitCommit: boolean = false,
+    ) => {
+      console.log(
+        `[db:saveNote] Called for noteId=${note.id}, title=${note.title}, content length=${note.content?.length}`,
       );
-    }
-
-    try {
-      setAppWriting(true);
-      await runDb("BEGIN TRANSACTION");
-      let oldFilePath: string | null = null;
-      let newFilePath: string | null = null;
-
-      const projId = note.chapterId || note.projectId || note.project_id;
-
-      if (vaultPath) {
-        const oldNote = await getDb("SELECT * FROM notes WHERE id = ?", [
-          note.id,
-        ]).then((r) => r[0]);
-        if (oldNote) {
-          oldFilePath = await resolveNotePath(
-            vaultPath,
-            oldNote.title,
-            oldNote.project_id,
-          );
-        }
-        newFilePath = await resolveNotePath(vaultPath, note.title, projId);
+      const homeDir = app.getPath("home");
+      if (vaultPath && !vaultPath.startsWith(homeDir)) {
+        throw new Error(
+          "Security Error: vaultPath is outside allowed directories.",
+        );
       }
 
-      await runDb(
-        "INSERT OR REPLACE INTO notes (id, project_id, title, date, time, tags) VALUES (?, ?, ?, ?, ?, ?)",
-        [
-          note.id,
-          projId,
-          note.title,
-          note.date,
-          note.time,
-          JSON.stringify(note.tags || []),
-        ],
-      );
+      try {
+        setAppWriting(true);
+        await runDb("BEGIN TRANSACTION");
+        let oldFilePath: string | null = null;
+        let newFilePath: string | null = null;
 
-      if (note.flashcard) {
-        await runDb(
-          "INSERT OR REPLACE INTO flashcards (id, note_id, question, answer, next_review, interval, ease, repetition) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-          [
-            note.id + "_fc",
+        const projId = note.chapterId || note.projectId || note.project_id;
+
+        if (vaultPath) {
+          const oldNote = await getDb("SELECT * FROM notes WHERE id = ?", [
             note.id,
-            note.flashcard.question,
-            note.flashcard.answer,
-            note.flashcard.nextReviewDate,
-            note.flashcard.interval,
-            note.flashcard.easeFactor,
-            note.flashcard.repetition,
+          ]).then((r) => r[0]);
+          if (oldNote) {
+            oldFilePath = await resolveNotePath(
+              vaultPath,
+              oldNote.title,
+              oldNote.project_id,
+            );
+          }
+          newFilePath = await resolveNotePath(vaultPath, note.title, projId);
+        }
+
+        await runDb(
+          "INSERT OR REPLACE INTO notes (id, project_id, title, date, time, tags) VALUES (?, ?, ?, ?, ?, ?)",
+          [
+            note.id,
+            projId,
+            note.title,
+            note.date,
+            note.time,
+            JSON.stringify(note.tags || []),
           ],
         );
-      } else {
-        await runDb("DELETE FROM flashcards WHERE note_id = ?", [note.id]);
-      }
 
-      await runDb("COMMIT");
+        if (note.flashcard) {
+          await runDb(
+            "INSERT OR REPLACE INTO flashcards (id, note_id, question, answer, next_review, interval, ease, repetition) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            [
+              note.id + "_fc",
+              note.id,
+              note.flashcard.question,
+              note.flashcard.answer,
+              note.flashcard.nextReviewDate,
+              note.flashcard.interval,
+              note.flashcard.easeFactor,
+              note.flashcard.repetition,
+            ],
+          );
+        } else {
+          await runDb("DELETE FROM flashcards WHERE note_id = ?", [note.id]);
+        }
 
-      if (vaultPath && newFilePath) {
-        // Ensure dir exists
-        await fs.mkdir(path.dirname(newFilePath), { recursive: true });
+        await runDb("COMMIT");
 
-        // Rename if title/project changed
-        if (oldFilePath && oldFilePath !== newFilePath) {
-          if (await exists(oldFilePath)) {
+        if (vaultPath && newFilePath) {
+          // Ensure dir exists
+          await fs.mkdir(path.dirname(newFilePath), { recursive: true });
+
+          // Rename if title/project changed
+          if (oldFilePath && oldFilePath !== newFilePath) {
+            if (await exists(oldFilePath)) {
+              try {
+                let git = gitCache.get(vaultPath);
+                if (!git) {
+                  git = customRequire("simple-git")(vaultPath);
+                  gitCache.set(vaultPath, git);
+                }
+                if (await git.checkIsRepo()) {
+                  const relativeOld = path.relative(vaultPath, oldFilePath);
+                  const relativeNew = path.relative(vaultPath, newFilePath);
+                  await git.mv(relativeOld, relativeNew);
+                  // After git mv, only stage the new path
+                  await git.commit(`Rename note: ${note.title}`, [relativeNew]);
+                } else {
+                  await fs.rename(oldFilePath, newFilePath).catch(() => {});
+                }
+              } catch {
+                await fs.rename(oldFilePath, newFilePath).catch(() => {});
+              }
+            }
+          }
+
+          if (note.content !== undefined) {
+            let finalContent = note.content || "";
+            try {
+              const settingRow = await getDb(
+                "SELECT value FROM settings WHERE key = 'autoFormatOnSave'",
+              ).then((r: any) => r[0]);
+              if (settingRow && settingRow.value === "true") {
+                const prettier = customRequire("prettier");
+                finalContent = await prettier.format(finalContent, {
+                  parser: "markdown",
+                });
+              }
+            } catch (e) {
+              console.error("Prettier formatting failed", e);
+            }
+            (note as any).finalContentToReturn = finalContent;
+            await atomicWrite(newFilePath, finalContent, {
+              encoding: "utf-8",
+            });
             try {
               let git = gitCache.get(vaultPath);
               if (!git) {
@@ -365,86 +416,52 @@ export function registerDbHandlers(ipcMain: any) {
                 gitCache.set(vaultPath, git);
               }
               if (await git.checkIsRepo()) {
-                const relativeOld = path.relative(vaultPath, oldFilePath);
-                const relativeNew = path.relative(vaultPath, newFilePath);
-                await git.mv(relativeOld, relativeNew);
-                // After git mv, only stage the new path
-                await git.commit(`Rename note: ${note.title}`, [relativeNew]);
-              } else {
-                await fs.rename(oldFilePath, newFilePath).catch(() => {});
+                const relativePath = path.relative(vaultPath, newFilePath);
+                await git.add(relativePath);
+                if (isExplicitCommit) {
+                  await git.commit(`Update note: ${note.title}`, [
+                    relativePath,
+                  ]);
+                }
               }
-            } catch {
-              await fs.rename(oldFilePath, newFilePath).catch(() => {});
+            } catch (e) {
+              console.error("Auto-commit failed:", e);
             }
           }
+
+          let ftsContent = note.content;
+          if (ftsContent === undefined) {
+            try {
+              ftsContent = await fs.readFile(newFilePath, "utf-8");
+            } catch (e) {
+              ftsContent = "";
+            }
+          }
+          noteContentCache.set(note.id, ftsContent);
+          await runDb(
+            "INSERT OR REPLACE INTO notes_fts (id, title, content) VALUES (?, ?, ?)",
+            [note.id, note.title, ftsContent],
+          );
         }
 
-        if (note.content !== undefined) {
-          let finalContent = note.content || "";
-          try {
-            const settingRow = await getDb(
-              "SELECT value FROM settings WHERE key = 'autoFormatOnSave'",
-            ).then((r: any) => r[0]);
-            if (settingRow && settingRow.value === "true") {
-              const prettier = customRequire("prettier");
-              finalContent = await prettier.format(finalContent, {
-                parser: "markdown",
-              });
-            }
-          } catch (e) {
-            console.error("Prettier formatting failed", e);
-          }
-          (note as any).finalContentToReturn = finalContent;
-          await atomicWrite(newFilePath, finalContent, {
-            encoding: "utf-8",
-          });
-          try {
-            let git = gitCache.get(vaultPath);
-            if (!git) {
-              git = customRequire("simple-git")(vaultPath);
-              gitCache.set(vaultPath, git);
-            }
-            if (await git.checkIsRepo()) {
-              const relativePath = path.relative(vaultPath, newFilePath);
-              await git.add(relativePath);
-              await git.commit(`Update note: ${note.title}`, [relativePath]);
-            }
-          } catch (e) {
-            console.error("Auto-commit failed:", e);
-          }
-        }
-
-        let ftsContent = note.content;
-        if (ftsContent === undefined) {
-          try {
-            ftsContent = await fs.readFile(newFilePath, "utf-8");
-          } catch (e) {
-            ftsContent = "";
-          }
-        }
-        noteContentCache.set(note.id, ftsContent);
-        await runDb(
-          "INSERT OR REPLACE INTO notes_fts (id, title, content) VALUES (?, ?, ?)",
-          [note.id, note.title, ftsContent],
-        );
+        return {
+          success: true,
+          formattedContent:
+            note.content !== undefined
+              ? (note as any).finalContentToReturn
+              : undefined,
+        };
+      } catch (error: any) {
+        console.error("[db:saveNote] ERROR:", error);
+        await runDb("ROLLBACK").catch(() => {});
+        return { success: false, error: error.message };
+      } finally {
+        setAppWriting(false);
       }
+    },
+  );
 
-      return {
-        success: true,
-        formattedContent:
-          note.content !== undefined
-            ? (note as any).finalContentToReturn
-            : undefined,
-      };
-    } catch (error: any) {
-      await runDb("ROLLBACK").catch(() => {});
-      return { success: false, error: error.message };
-    } finally {
-      setAppWriting(false);
-    }
-  });
-
-  ipcMain.handle(
+  typedIpcHandle(
     "fs:saveAsset",
     async (
       _,
@@ -511,7 +528,7 @@ export function registerDbHandlers(ipcMain: any) {
     },
   );
 
-  ipcMain.handle(
+  typedIpcHandle(
     "fs:copyPdfAsset",
     async (_, vaultPath: string, sourcePath: string) => {
       try {
@@ -538,7 +555,7 @@ export function registerDbHandlers(ipcMain: any) {
     },
   );
 
-  ipcMain.handle(
+  typedIpcHandle(
     "fs:readNoteContent",
     async (_, vaultPath: string, noteId: string) => {
       try {
@@ -564,7 +581,7 @@ export function registerDbHandlers(ipcMain: any) {
     },
   );
 
-  ipcMain.handle(
+  typedIpcHandle(
     "db:deleteNote",
     async (_, vaultPath: string, noteId: string) => {
       try {
@@ -597,7 +614,7 @@ export function registerDbHandlers(ipcMain: any) {
   );
 
   let isSyncing = false;
-  ipcMain.handle("db:syncFromVault", async (_, vaultPath: string) => {
+  typedIpcHandle("db:syncFromVault", async (_, vaultPath: string) => {
     const homeDir = app.getPath("home");
     if (vaultPath && !vaultPath.startsWith(homeDir)) {
       throw new Error(
@@ -825,7 +842,7 @@ export function registerDbHandlers(ipcMain: any) {
     }
   });
 
-  ipcMain.handle("db:searchNotes", async (_, query: string) => {
+  typedIpcHandle("db:searchNotes", async (_, query: string) => {
     try {
       if (!query || query.trim() === "") return { success: true, data: [] };
       // Use FTS5 MATCH with wildcard for partial matches
@@ -848,7 +865,7 @@ export function registerDbHandlers(ipcMain: any) {
     }
   });
 
-  ipcMain.handle("db:logActivity", async (_, date: string, action: string) => {
+  typedIpcHandle("db:logActivity", async (_, date: string, action: string) => {
     const id = date + "_" + action;
     try {
       const rows = await getDb("SELECT count FROM activity_logs WHERE id = ?", [
@@ -870,7 +887,7 @@ export function registerDbHandlers(ipcMain: any) {
     }
   });
 
-  ipcMain.handle("db:getActivityLogs", async (_) => {
+  typedIpcHandle("db:getActivityLogs", async (_) => {
     try {
       const rows = await getDb(
         "SELECT date, SUM(count) as count FROM activity_logs GROUP BY date ORDER BY date ASC",
@@ -882,7 +899,7 @@ export function registerDbHandlers(ipcMain: any) {
   });
 
   // Settings CRUD
-  ipcMain.handle("db:getSettings", async (_) => {
+  typedIpcHandle("db:getSettings", async (_) => {
     try {
       const rows = await getDb("SELECT key, value FROM settings");
       const settings: Record<string, string> = {};
@@ -906,7 +923,7 @@ export function registerDbHandlers(ipcMain: any) {
     }
   });
 
-  ipcMain.handle("db:saveSetting", async (_, key: string, value: string) => {
+  typedIpcHandle("db:saveSetting", async (_, key: string, value: string) => {
     let finalValue = value;
     if (key === "gitGithubToken" && safeStorage.isEncryptionAvailable()) {
       finalValue = safeStorage.encryptString(value).toString("base64");
@@ -922,7 +939,7 @@ export function registerDbHandlers(ipcMain: any) {
     }
   });
 
-  ipcMain.handle(
+  typedIpcHandle(
     "db:saveSettings",
     async (_, settings: Record<string, string>) => {
       try {

@@ -58,22 +58,35 @@ export function MarkdownRenderer({ content }: { content: string }) {
         if (domNode.name === "img") {
           let src = domNode.attribs.src;
           if (src && !src.startsWith("http") && vaultPath) {
-            const assetMatch = src.match(/assets\/(.+)$/);
+            // First decode to remove any existing %20, so we can reliably re-encode the whole absolute path
+            const decodedSrc = decodeURIComponent(src);
+            const assetMatch = decodedSrc.match(/assets\/(.+)$/);
+
+            let rawLocalPath = "";
             if (assetMatch) {
-              src = `file://${vaultPath}/docs/assets/${assetMatch[1]}`;
+              rawLocalPath = `${vaultPath}/docs/assets/${assetMatch[1]}`;
             } else {
-              const filename = src.split("/").pop();
-              src = `file://${vaultPath}/docs/assets/images/${filename}`;
+              const filename = decodedSrc.split("/").pop();
+              rawLocalPath = `${vaultPath}/docs/assets/images/${filename}`;
             }
+
+            // Encode the absolute path using encodeURI which correctly handles spaces but leaves path delimiters and commas alone
+            const encodedLocalPath = encodeURI(
+              rawLocalPath.replace(/\\/g, "/"),
+            );
+
+            src = `file://${encodedLocalPath}`;
           }
           return (
-            <Zoom>
-              <img
-                src={src}
-                alt={domNode.attribs.alt || ""}
-                className={domNode.attribs.class || ""}
-              />
-            </Zoom>
+            <div className="flex justify-center w-full my-6">
+              <Zoom>
+                <img
+                  src={src}
+                  alt={domNode.attribs.alt || ""}
+                  className={`max-w-full h-auto rounded-lg shadow-sm border border-border/40 ${domNode.attribs.class || ""}`}
+                />
+              </Zoom>
+            </div>
           );
         }
 
@@ -88,17 +101,22 @@ export function MarkdownRenderer({ content }: { content: string }) {
                 onClick={(e) => {
                   e.preventDefault();
                   if (vaultPath && !href.startsWith("http")) {
-                    const assetMatch = href.match(/assets\/(.+)$/);
+                    const decodedHref = decodeURIComponent(href);
+                    const assetMatch = decodedHref.match(/assets\/(.+)$/);
+
+                    let rawLocalPath = "";
                     if (assetMatch) {
-                      setActivePdf(
-                        `file://${vaultPath}/docs/assets/${assetMatch[1]}`,
-                      );
+                      rawLocalPath = `${vaultPath}/docs/assets/${assetMatch[1]}`;
                     } else {
-                      const filename = href.split("/").pop();
-                      setActivePdf(
-                        `file://${vaultPath}/docs/assets/images/${filename}`,
-                      );
+                      const filename = decodedHref.split("/").pop();
+                      rawLocalPath = `${vaultPath}/docs/assets/images/${filename}`;
                     }
+
+                    const encodedLocalPath = encodeURI(
+                      rawLocalPath.replace(/\\/g, "/"),
+                    );
+
+                    setActivePdf(`file://${encodedLocalPath}`);
                   } else {
                     setActivePdf(href);
                   }

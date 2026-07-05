@@ -1,6 +1,7 @@
 import { safeStorage, app } from "electron";
 import path from "node:path";
 import fsSync from "node:fs";
+import { typedIpcHandle } from "../typedIpc";
 import {
   getDb,
   runDb,
@@ -10,7 +11,57 @@ import {
 } from "../ipcHandlers";
 
 export function registerGitHandlers(ipcMain: any) {
-  ipcMain.handle("git:getVaultHistory", async (_, vaultPath: string) => {
+  typedIpcHandle("git:status", async (_, vaultPath: string) => {
+    try {
+      if (!vaultPath) throw new Error("Vault path not set");
+      let git = gitCache.get(vaultPath);
+      if (!git) {
+        git = customRequire("simple-git")(vaultPath);
+        gitCache.set(vaultPath, git);
+      }
+      const isRepo = await git.checkIsRepo();
+      if (!isRepo) return { success: true, data: null };
+
+      const status = await git.status();
+      return {
+        success: true,
+        data: {
+          staged: status.staged,
+          modified: status.modified,
+          not_added: status.not_added,
+          created: status.created,
+          deleted: status.deleted,
+          files: status.files,
+        },
+      };
+    } catch (e: any) {
+      return { success: false, error: e.message };
+    }
+  });
+
+  typedIpcHandle(
+    "git:commitAll",
+    async (_, vaultPath: string, message: string) => {
+      try {
+        if (!vaultPath) throw new Error("Vault path not set");
+        let git = gitCache.get(vaultPath);
+        if (!git) {
+          git = customRequire("simple-git")(vaultPath);
+          gitCache.set(vaultPath, git);
+        }
+        const isRepo = await git.checkIsRepo();
+        if (!isRepo) return { success: true };
+
+        await git.add(".");
+        await git.commit(message || "Auto sync commit");
+        return { success: true };
+      } catch (e: any) {
+        return { success: false, error: e.message };
+      }
+    },
+  );
+
+  typedIpcHandle("git:getVaultHistory", async (_, vaultPath: string) => {
     const homeDir = app.getPath("home");
     if (vaultPath && !vaultPath.startsWith(homeDir)) {
       throw new Error(
@@ -34,7 +85,7 @@ export function registerGitHandlers(ipcMain: any) {
     }
   });
 
-  ipcMain.handle(
+  typedIpcHandle(
     "git:getFileHistory",
     async (_, vaultPath: string, noteId: string) => {
       try {
@@ -70,7 +121,7 @@ export function registerGitHandlers(ipcMain: any) {
     },
   );
 
-  ipcMain.handle(
+  typedIpcHandle(
     "git:getFileContentAtCommit",
     async (_, vaultPath: string, noteId: string, hash: string) => {
       try {
@@ -130,7 +181,7 @@ export function registerGitHandlers(ipcMain: any) {
     },
   );
 
-  ipcMain.handle("git:commitLocal", async (_, folderPath: string) => {
+  typedIpcHandle("git:commitLocal", async (_, folderPath: string) => {
     try {
       if (!folderPath) throw new Error("Vault path not configured");
       const git = customRequire("simple-git")(folderPath);
@@ -154,7 +205,7 @@ export function registerGitHandlers(ipcMain: any) {
     }
   });
 
-  ipcMain.handle("git:sync", async (_, folderPath: string) => {
+  typedIpcHandle("git:sync", async (_, folderPath: string) => {
     try {
       if (!folderPath) throw new Error("Vault path not configured");
       const git = customRequire("simple-git")(folderPath);

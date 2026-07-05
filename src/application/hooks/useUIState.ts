@@ -42,7 +42,11 @@ export function useUIState(
     async (note: Note) => {
       if (!vaultPath) return;
       try {
-        const history = await ipc.getFileHistory(vaultPath, note.id);
+        const history = await ipc.invoke(
+          "git:getFileHistory",
+          vaultPath,
+          note.id,
+        );
         setNoteHistory(history);
         setActiveHistoryNote(note);
         setIsHistoryOpen(true);
@@ -67,7 +71,8 @@ export function useUIState(
     async (noteId: string, hash: string) => {
       if (!vaultPath) return;
       try {
-        const res = await (ipc as any).getFileContentAtCommit(
+        const res = await ipc.invoke(
+          "git:getFileContentAtCommit",
           vaultPath,
           noteId,
           hash,
@@ -91,7 +96,7 @@ export function useUIState(
       if (!vaultPath || !viewingCommitHash || !historicalContent) return;
       try {
         const updatedNote = { ...note, content: historicalContent };
-        await ipc.saveNote(vaultPath, updatedNote);
+        await ipc.invoke("db:saveNote", vaultPath, updatedNote);
         setAllNotesMap((prev: Record<string, Note[]>) => {
           const pId =
             Object.keys(prev).find((pid) =>
@@ -123,10 +128,13 @@ export function useUIState(
   );
 
   const saveEdit = useCallback(
-    async (close = true) => {
+    async (close = true, overrideContent?: string) => {
+      const contentToSave =
+        overrideContent !== undefined ? overrideContent : editNoteContent;
+
       let finalTitle = editNoteTitle;
       if (finalTitle === "New Note" || !finalTitle.trim()) {
-        const match = editNoteContent.match(/^#\s+(.*)$/m);
+        const match = contentToSave.match(/^#\s+(.*)$/m);
         if (match && match[1]) {
           finalTitle = match[1].trim();
           setEditNoteTitle(finalTitle);
@@ -139,56 +147,76 @@ export function useUIState(
       let fullNoteForIpc: any = null;
       setAllNotesMap((prev: any) => {
         const draft = { ...prev };
-        if (activeProjectId && draft[activeProjectId]) {
-          const arr = [...draft[activeProjectId]];
-          const idx = arr.findIndex((n: any) => n.id === editingNoteId);
-          if (idx !== -1) {
-            arr[idx] = { ...arr[idx], title: finalTitle };
-            arr[idx].tags = editNoteTags
-              .split(",")
-              .map((t: string) => t.trim())
-              .filter(Boolean);
+        let targetProjectId = activeProjectId;
+        let idx = -1;
 
-            if (editFlashcardQ.trim() && editFlashcardA.trim()) {
-              arr[idx].flashcard = {
-                ...arr[idx].flashcard,
-                question: editFlashcardQ,
-                answer: editFlashcardA,
-                nextReviewDate:
-                  arr[idx].flashcard?.nextReviewDate ||
-                  new Date().toISOString().split("T")[0],
-                interval: arr[idx].flashcard?.interval || 0,
-                easeFactor: arr[idx].flashcard?.easeFactor || 2.5,
-                repetition: arr[idx].flashcard?.repetition || 0,
-              };
-            } else {
-              delete arr[idx].flashcard;
+        if (targetProjectId && draft[targetProjectId]) {
+          idx = draft[targetProjectId].findIndex(
+            (n: any) => n.id === editingNoteId,
+          );
+        }
+
+        if (idx === -1) {
+          for (const pid of Object.keys(draft)) {
+            const foundIdx = draft[pid].findIndex(
+              (n: any) => n.id === editingNoteId,
+            );
+            if (foundIdx !== -1) {
+              targetProjectId = pid;
+              idx = foundIdx;
+              break;
             }
-            fullNoteForIpc = { ...arr[idx], content: editNoteContent };
-            arr[idx].content = "";
-            updatedNote = arr[idx];
           }
-          draft[activeProjectId] = arr;
+        }
+
+        if (targetProjectId && idx !== -1) {
+          const arr = [...draft[targetProjectId]];
+          arr[idx] = { ...arr[idx], title: finalTitle };
+          arr[idx].tags = editNoteTags
+            .split(",")
+            .map((t: string) => t.trim())
+            .filter(Boolean);
+
+          if (editFlashcardQ.trim() && editFlashcardA.trim()) {
+            arr[idx].flashcard = {
+              ...arr[idx].flashcard,
+              question: editFlashcardQ,
+              answer: editFlashcardA,
+              nextReviewDate:
+                arr[idx].flashcard?.nextReviewDate ||
+                new Date().toISOString().split("T")[0],
+              interval: arr[idx].flashcard?.interval || 0,
+              easeFactor: arr[idx].flashcard?.easeFactor || 2.5,
+              repetition: arr[idx].flashcard?.repetition || 0,
+            };
+          } else {
+            delete arr[idx].flashcard;
+          }
+          fullNoteForIpc = { ...arr[idx], content: contentToSave };
+          arr[idx].content = "";
+          updatedNote = arr[idx];
+          draft[targetProjectId] = arr;
         }
         return draft;
       });
 
       if (fullNoteForIpc && vaultPath) {
         ipc
-          .saveNote(vaultPath, fullNoteForIpc)
+          .invoke("db:saveNote", vaultPath, fullNoteForIpc, close)
           .then(async (res: any) => {
             if (res.success && res.formattedContent !== undefined) {
               setEditNoteContent(res.formattedContent);
             }
             // Log edit activity
-            await ipc.logActivity(
+            await ipc.invoke(
+              "db:logActivity",
               vaultPath,
               new Date().toISOString().split("T")[0],
               "edit",
             );
 
             const { useReviewStore } = require("../store/reviewStore");
-            const logsRes = await ipc.getActivityLogs(vaultPath);
+            const logsRes = await ipc.invoke("db:getActivityLogs", vaultPath);
             useReviewStore.getState().setActivityLogs(logsRes?.data || []);
           })
           .catch((e: any) => {
@@ -232,16 +260,18 @@ export function useUIState(
 
         try {
           const buffer = await file.arrayBuffer();
-          const res = await ipc.saveAsset(
+          const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
+          const res = await ipc.invoke(
+            "fs:saveAsset",
             vaultPath,
-            `${Math.random().toString(36).substring(7)}_${file.name}`,
+            `${Math.random().toString(36).substring(7)}_${sanitizedName}`,
             buffer,
             projId,
           );
 
           if (res.success) {
             const isPdf = file.type === "application/pdf";
-            const markdownAsset = `\n${isPdf ? "" : "!"}[${file.name}](${res.url})\n`;
+            const markdownAsset = `\n${isPdf ? "" : "!"}[${file.name}](${encodeURI(res.url)})\n`;
 
             if (isEditing) {
               setEditNoteContent((prev) => prev + markdownAsset);
@@ -276,7 +306,7 @@ export function useUIState(
         setEditNoteContent(note.content);
       } else if (vaultPath && note.id) {
         setEditNoteContent("Loading...");
-        const res = await ipc.getNoteContent(vaultPath, note.id);
+        const res = await ipc.invoke("db:getNoteContent", vaultPath, note.id);
         if (res.success && res.data) {
           setEditNoteContent(res.data);
 
@@ -305,7 +335,7 @@ export function useUIState(
     if (!note || !historicalContent || !vaultPath) return;
     setConfirmRestoreNote(null);
     const restoredNote = { ...note, content: historicalContent };
-    await ipc.saveNote(vaultPath, restoredNote);
+    await ipc.invoke("db:saveNote", vaultPath, restoredNote);
 
     setAllNotesMap((prev: any) => {
       const draft = { ...prev };

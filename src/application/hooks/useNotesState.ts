@@ -100,15 +100,15 @@ export function useNotesState(
           );
         };
 
-        const dbRes = await ipc.getInitialState(vPath);
+        const dbRes = await ipc.invoke("db:getInitialState", vPath);
         if (dbRes.success && dbRes.data) {
           updateState(dbRes.data);
         }
 
         ipc
-          .syncFromVault(vPath)
+          .invoke("db:syncFromVault", vPath)
           .then(async () => {
-            const syncedRes = await ipc.getInitialState(vPath);
+            const syncedRes = await ipc.invoke("db:getInitialState", vPath);
             if (syncedRes.success && syncedRes.data) {
               updateState(syncedRes.data);
             }
@@ -127,7 +127,7 @@ export function useNotesState(
       if (!vaultPath) return;
       try {
         const pId = nanoid();
-        await ipc.saveProject(vaultPath, {
+        await ipc.invoke("db:saveProject", vaultPath, {
           id: pId,
           name: "New " + type,
           type,
@@ -146,7 +146,7 @@ export function useNotesState(
     async (projectId: string) => {
       if (!vaultPath) return;
       try {
-        const res = await ipc.archiveProject(vaultPath, projectId);
+        const res = await ipc.invoke("db:archiveProject", vaultPath, projectId);
         if (res.success) {
           await loadDataFromVault(vaultPath);
           showToast("Archived successfully", "success");
@@ -164,7 +164,11 @@ export function useNotesState(
     async (projectId: string) => {
       if (!vaultPath) return;
       try {
-        const res = await ipc.unarchiveProject(vaultPath, projectId);
+        const res = await ipc.invoke(
+          "db:unarchiveProject",
+          vaultPath,
+          projectId,
+        );
         if (res.success) {
           await loadDataFromVault(vaultPath);
           showToast("Unarchived successfully", "success");
@@ -183,7 +187,7 @@ export function useNotesState(
       if (!vaultPath) return;
       try {
         const chapterId = nanoid();
-        await ipc.saveProject(vaultPath, {
+        await ipc.invoke("db:saveProject", vaultPath, {
           id: chapterId,
           name: customName || "New Chapter",
           type: "chapter",
@@ -242,8 +246,8 @@ export function useNotesState(
 
         setFocusedNoteId(newNote.id);
         ipc
-          .saveNote(vaultPath, newNote)
-          .then(() => ipc.logActivity(vaultPath, dStr, "create"))
+          .invoke("db:saveNote", vaultPath, newNote)
+          .then(() => ipc.invoke("db:logActivity", vaultPath, dStr, "create"))
           .catch((e) =>
             showToast("Failed to save note: " + e.message, "error"),
           );
@@ -282,7 +286,7 @@ export function useNotesState(
 
       const undoTimeout = setTimeout(async () => {
         if (vaultPath) {
-          await ipc.deleteNote(vaultPath, noteId);
+          await ipc.invoke("db:deleteNote", vaultPath, noteId);
         }
         delete pendingDeletions.current[noteId];
       }, 4000);
@@ -326,7 +330,7 @@ export function useNotesState(
       );
 
       if (vaultPath) {
-        await ipc.saveNote(vaultPath, updated);
+        await ipc.invoke("db:saveNote", vaultPath, updated);
       }
     },
     [allNotesFlat, setAllNotesMap, vaultPath],

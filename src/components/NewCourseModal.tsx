@@ -48,7 +48,7 @@ export function NewCourseModal() {
       };
 
       if (vaultPath) {
-        await ipc.saveProject(vaultPath, newProject);
+        await ipc.invoke("db:saveProject", vaultPath, newProject);
       }
 
       setProjects([...projects, newProject]);

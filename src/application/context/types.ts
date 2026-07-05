@@ -13,7 +13,12 @@ export interface VaultContextType {
   liveUrl: string | null;
   setVaultPath: React.Dispatch<React.SetStateAction<string | null>>;
   handleSync: () => Promise<void>;
+  performActualSync: (commitMessage?: string) => Promise<void>;
   handleSelectVault: () => Promise<void>;
+  isSyncModalOpen: boolean;
+  setIsSyncModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  gitStatusForSync: any;
+  setGitStatusForSync: React.Dispatch<React.SetStateAction<any>>;
   mkdocsConfig: string;
   vaultPath: string | null;
   isSavingConfig: boolean;

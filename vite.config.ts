@@ -3,7 +3,6 @@ import path from "node:path";
 import electron from "vite-plugin-electron/simple";
 import reactSWC from "@vitejs/plugin-react-swc";
 import tailwindcss from "@tailwindcss/vite";
-import million from "million/compiler";
 import AutoImport from "unplugin-auto-import/vite";
 
 // https://vite.dev/config/
@@ -26,7 +25,6 @@ export default defineConfig({
     external: ["better-sqlite3", "simple-git"],
   },
   plugins: [
-    million.vite({ auto: true }),
     tailwindcss(),
     reactSWC(),
     AutoImport({

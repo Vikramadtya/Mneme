@@ -1,4 +1,5 @@
 import { dialog, app, shell } from "electron";
+import { typedIpcHandle } from "../typedIpc";
 import { spawn } from "node:child_process";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -10,7 +11,7 @@ const store = new Store();
 let mkdocsProcess: ChildProcess | null = null;
 
 export function registerAppHandlers(ipcMain: any) {
-  ipcMain.handle("app:getConfig", async () => {
+  typedIpcHandle("app:getConfig", async () => {
     try {
       return { success: true, data: store.store };
     } catch {
@@ -18,7 +19,7 @@ export function registerAppHandlers(ipcMain: any) {
     }
   });
 
-  ipcMain.handle("app:setConfig", async (_, config: any) => {
+  typedIpcHandle("app:setConfig", async (_, config: any) => {
     try {
       store.set(config);
       return { success: true };
@@ -27,7 +28,7 @@ export function registerAppHandlers(ipcMain: any) {
     }
   });
 
-  ipcMain.handle("app:selectPdf", async () => {
+  typedIpcHandle("app:selectPdf", async () => {
     const result = await dialog.showOpenDialog({
       properties: ["openFile"],
       filters: [{ name: "PDF Documents", extensions: ["pdf"] }],
@@ -38,7 +39,7 @@ export function registerAppHandlers(ipcMain: any) {
     return { success: false };
   });
 
-  ipcMain.handle("app:selectVault", async () => {
+  typedIpcHandle("app:selectVault", async () => {
     const result = await dialog.showOpenDialog({
       properties: ["openDirectory", "createDirectory"],
     });
@@ -63,7 +64,7 @@ export function registerAppHandlers(ipcMain: any) {
     return { success: false };
   });
 
-  ipcMain.handle(
+  typedIpcHandle(
     "app:toggleLive",
     async (_, vaultPath: string, port?: number) => {
       const homeDir = app.getPath("home");
@@ -154,7 +155,7 @@ export function registerAppHandlers(ipcMain: any) {
     },
   );
 
-  ipcMain.handle("app:openExternal", async (_, url: string) => {
+  typedIpcHandle("app:openExternal", async (_, url: string) => {
     try {
       // Validate URL is safe (only http/https allowed)
       const parsed = new URL(url);
@@ -170,7 +171,7 @@ export function registerAppHandlers(ipcMain: any) {
 
   // DB Sync State
   // DB Sync State
-  ipcMain.handle("app:generateGithubAction", async (_, vaultPath: string) => {
+  typedIpcHandle("app:generateGithubAction", async (_, vaultPath: string) => {
     const homeDir = app.getPath("home");
     if (vaultPath && !vaultPath.startsWith(homeDir)) {
       throw new Error(
@@ -228,7 +229,7 @@ jobs:
   });
 
   // Git Handlers
-  ipcMain.handle("app:reportError", async (_, errorInfo: any) => {
+  typedIpcHandle("app:reportError", async (_, errorInfo: any) => {
     console.error("Frontend Error Reported:", errorInfo);
   });
 }
