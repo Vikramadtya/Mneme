@@ -22,8 +22,9 @@ import {
 import { useVault, useNotes, useUI, useReview } from "../application/context";
 import { useSidebarController } from "../application/hooks/useSidebarController";
 import { MoveModal } from "./MoveModal";
-import { Edit2, CornerRightUp } from "lucide-react";
+import { Edit2, CornerRightUp, Trash2 } from "lucide-react";
 import { Tooltip } from "./Tooltip";
+import { DeleteConfirmModal } from "./DeleteConfirmModal";
 import { ipc } from "../ipc";
 
 // DnD Kit imports
@@ -78,12 +79,18 @@ const SortableItem = React.memo(function SortableItem({
 export function LeftSidebar() {
   const handleSync = useVault((s) => s.handleSync);
   const selectProject = useNotes((s) => s.selectProject);
-  const setIsNewBookModalOpen = useUI((s) => s.setIsNewBookModalOpen);
-  const setIsNewCourseModalOpen = useUI((s) => s.setIsNewCourseModalOpen);
+  const setIsNewProjectModalOpen = useUI(
+    (s: any) => s.setIsNewProjectModalOpen,
+  );
+  const setEditingProject = useVault((s: any) => s.setEditingProject);
+  const setAddingProjectType = useUI((s) => s.setAddingProjectType);
+  const settingsOpen = useUI((s: any) => s.settingsOpen);
   const showToast = useUI((s) => s.showToast);
   const zenMode = useUI((s) => s.zenMode);
   const activeTab = useUI((s) => s.activeTab);
   const setActiveTab = useUI((s) => s.setActiveTab);
+  const expandedProjects = useUI((s) => s.expandedProjects);
+  const setExpandedProjects = useUI((s) => s.setExpandedProjects);
   const setAddingChapterTo = useUI((s) => s.setAddingChapterTo);
   const addingChapterTo = useUI((s) => s.addingChapterTo);
   const newChapterName = useUI((s) => s.newChapterName);
@@ -108,7 +115,9 @@ export function LeftSidebar() {
   const activeProject = useNotes((s) => s.activeProject);
   const rootProject = useNotes((s) => s.rootProject);
   const handleArchiveProject = useNotes((s) => s.handleArchiveProject);
-  const handleUnarchiveProject = useNotes((s) => s.handleUnarchiveProject);
+  const handleUnarchiveProject = useNotes((s: any) => s.handleUnarchiveProject);
+  const deleteProject = useNotes((s: any) => s.deleteProject);
+  const deleteChapter = useNotes((s: any) => s.deleteChapter);
   const vaultPath = useVault((s) => s.vaultPath);
   const syncing = useVault((s) => s.syncing);
   const isLive = useVault((s) => s.isLive);
@@ -159,10 +168,14 @@ export function LeftSidebar() {
 
   const [booksCollapsed, setBooksCollapsed] = useState(true);
   const [coursesCollapsed, setCoursesCollapsed] = useState(true);
-  const [expandedProjects, setExpandedProjects] = useState<
-    Record<string, boolean>
-  >({});
   const [isExporting, setIsExporting] = useState(false);
+
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deletingItem, setDeletingItem] = useState<{
+    id: string;
+    type: string;
+    name: string;
+  } | null>(null);
 
   const handleExportZip = async () => {
     if (!vaultPath) return;
@@ -179,6 +192,275 @@ export function LeftSidebar() {
     } finally {
       setIsExporting(false);
     }
+  };
+
+  const renderSection = (
+    type: "book" | "course",
+    title: string,
+    Icon: any,
+    colorClass: string,
+    projectsList: any[],
+    isCollapsed: boolean,
+    setIsCollapsed: (v: boolean) => void,
+    onAddClick: () => void,
+  ) => {
+    const isBook = type === "book";
+    const childTerm = isBook ? "Chapter" : "Module";
+    const showBackToCatalog = isBook; // Only render this button in the first section
+
+    return (
+      <div className="mb-6">
+        {showBackToCatalog && isFocusedMode && !sidebarCollapsed && (
+          <button
+            onClick={() => setActiveTab("agenda")}
+            className="w-full flex items-center px-3 py-2 text-[13px] font-medium rounded-xl text-gray-500 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors mb-2"
+          >
+            <ChevronLeft size={14} className="mr-1" /> Back to Catalog
+          </button>
+        )}
+        {!sidebarCollapsed && !isFocusedMode && (
+          <div className="flex items-center justify-between mb-1 px-3 group">
+            <div
+              onClick={() =>
+                setActiveTab(type === "book" ? "books" : "courses")
+              }
+              className={
+                "cursor-pointer text-[11px] font-bold uppercase tracking-wider flex items-center hover:text-gray-800 dark:hover:text-gray-300 " +
+                (activeTab === (type === "book" ? "books" : "courses")
+                  ? colorClass
+                  : "text-[#71717a] dark:text-gray-500")
+              }
+            >
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsCollapsed(!isCollapsed);
+                }}
+                className="mr-1 hover:text-gray-900 dark:hover:text-gray-200"
+              >
+                {isCollapsed ? (
+                  <ChevronRight size={12} />
+                ) : (
+                  <ChevronDown size={12} />
+                )}
+              </button>
+              {title}
+            </div>
+            <button
+              onClick={() => {
+                setIsCollapsed(false);
+                onAddClick();
+              }}
+              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 opacity-0 group-hover:opacity-100 transition-opacity"
+            >
+              <PlusCircle size={14} />
+            </button>
+          </div>
+        )}
+
+        {(!isCollapsed || sidebarCollapsed || isFocusedMode) && (
+          <ul className="space-y-0.5">
+            <SortableContext
+              items={projectsList.map((p: any) => p.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              {projectsList.map((p: any) => {
+                const isExpanded = expandedProjects[p.id] === true;
+                return (
+                  <SortableItem key={p.id} id={p.id}>
+                    <div className="flex items-center group">
+                      <button
+                        onClick={() => {
+                          setActiveTab("project" as any);
+                          setProjectViewMode("toc");
+                          selectProject(p.id);
+                        }}
+                        onContextMenu={(e) => {
+                          e.preventDefault();
+                          setContextMenu({
+                            x: e.clientX,
+                            y: e.clientY,
+                            id: p.id,
+                            name: p.name,
+                            type: type,
+                          });
+                        }}
+                        className={
+                          "flex-1 flex items-center " +
+                          (sidebarCollapsed
+                            ? "justify-center px-0"
+                            : "pl-4 pr-6") +
+                          " py-1.5 text-[13px] rounded-xl transition-colors " +
+                          (activeProjectId === p.id && activeTab === "project"
+                            ? "bg-[#e4e4e7] dark:bg-white/5 text-[#1c1c1e] dark:text-white font-medium"
+                            : "hover:bg-accent hover:text-accent-foreground text-foreground")
+                        }
+                      >
+                        {!sidebarCollapsed && (
+                          <div
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setExpandedProjects((prev) => ({
+                                ...prev,
+                                [p.id]: !isExpanded,
+                              }));
+                            }}
+                            className="w-5 h-5 flex flex-shrink-0 items-center justify-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors mr-1"
+                          >
+                            {isExpanded ? (
+                              <ChevronDown size={12} />
+                            ) : (
+                              <ChevronRight size={12} />
+                            )}
+                          </div>
+                        )}
+                        <div
+                          className={
+                            "w-2 h-2 rounded-full " +
+                            (activeProjectId === p.id ||
+                            p.chapters?.some(
+                              (c: any) => c.id === activeProjectId,
+                            )
+                              ? p.color || "bg-purple-500"
+                              : "bg-gray-300 dark:bg-zinc-700") +
+                            (!sidebarCollapsed ? " mr-2" : "") +
+                            " flex-shrink-0 transition-colors"
+                          }
+                        ></div>
+                        {!sidebarCollapsed &&
+                          (renamingProjectId === p.id ? (
+                            <input
+                              autoFocus
+                              value={renamingProjectName}
+                              onChange={(e) =>
+                                setRenamingProjectName(e.target.value)
+                              }
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter")
+                                  handleRenameProject(
+                                    p.id,
+                                    renamingProjectName,
+                                  );
+                                if (e.key === "Escape")
+                                  setRenamingProjectId(null);
+                              }}
+                              onClick={(e) => e.stopPropagation()}
+                              className="bg-transparent border-b border-gray-400 outline-none w-full text-[13px] mr-2"
+                            />
+                          ) : (
+                            <span className="truncate">{p.name}</span>
+                          ))}
+                      </button>
+                      {!sidebarCollapsed && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (!expandedProjects[p.id]) {
+                              setExpandedProjects((prev) => ({
+                                ...prev,
+                                [p.id]: true,
+                              }));
+                            }
+                            setAddingChapterTo(p.id);
+                          }}
+                          className={`px-2 text-gray-400 hover:text-blue-500 transition-opacity ${isFocusedMode || activeProjectId === p.id ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
+                          title={"Add " + childTerm}
+                        >
+                          <PlusCircle size={12} />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Render Chapters/Modules */}
+                    {isExpanded &&
+                      (p.chapters?.length > 0 || addingChapterTo === p.id) && (
+                        <ul className="mt-0.5 space-y-0.5">
+                          <SortableContext
+                            items={(p.chapters || []).map((c: any) => c.id)}
+                            strategy={verticalListSortingStrategy}
+                          >
+                            {(p.chapters || []).map((c: any) => (
+                              <SortableItem
+                                key={c.id}
+                                id={c.id}
+                                isChapter={true}
+                              >
+                                <button
+                                  onClick={() => {
+                                    setActiveTab("project" as any);
+                                    setProjectViewMode("toc");
+                                    selectProject(p.id, c.id);
+                                  }}
+                                  className={
+                                    "w-full flex items-center " +
+                                    (sidebarCollapsed
+                                      ? "justify-center px-0"
+                                      : "pl-10 pr-6") +
+                                    " py-1.5 text-[12px] rounded-xl transition-colors " +
+                                    (activeProjectId === c.id &&
+                                    activeTab === "project"
+                                      ? "bg-[#e4e4e7] dark:bg-white/5 text-[#1c1c1e] dark:text-white font-medium"
+                                      : "hover:bg-accent hover:text-accent-foreground text-[#71717a] dark:text-gray-400")
+                                  }
+                                >
+                                  {activeProjectId === c.id ? (
+                                    <div
+                                      className={
+                                        "w-1.5 h-1.5 rounded-full " +
+                                        (p.color || "bg-purple-500") +
+                                        (!sidebarCollapsed ? " mr-2" : "") +
+                                        " flex-shrink-0 transition-colors"
+                                      }
+                                    />
+                                  ) : (
+                                    <CircleDashed
+                                      size={10}
+                                      className={
+                                        (!sidebarCollapsed ? "mr-2 " : "") +
+                                        "opacity-50 flex-shrink-0"
+                                      }
+                                    />
+                                  )}
+                                  {!sidebarCollapsed && (
+                                    <span className="truncate">{c.name}</span>
+                                  )}
+                                </button>
+                              </SortableItem>
+                            ))}
+                            {addingChapterTo === p.id && (
+                              <li className="pl-10 pr-6 py-1.5 flex items-center">
+                                <input
+                                  autoFocus
+                                  value={newChapterName}
+                                  onChange={(e) =>
+                                    setNewChapterName(e.target.value)
+                                  }
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") {
+                                      handleAddChapter(p.id, newChapterName);
+                                      setAddingChapterTo(null);
+                                      setNewChapterName("");
+                                    }
+                                    if (e.key === "Escape")
+                                      setAddingChapterTo(null);
+                                  }}
+                                  onClick={(e) => e.stopPropagation()}
+                                  placeholder={"New " + childTerm + "..."}
+                                  className="bg-transparent border-b border-gray-400 outline-none w-full text-[12px] text-gray-800 dark:text-gray-200"
+                                />
+                              </li>
+                            )}
+                          </SortableContext>
+                        </ul>
+                      )}
+                  </SortableItem>
+                );
+              })}
+            </SortableContext>
+          </ul>
+        )}
+      </div>
+    );
   };
 
   // DnD Sensors
@@ -292,187 +574,17 @@ export function LeftSidebar() {
               {/* Books Section */}
               {(booksToRender.length > 0 ||
                 addingProjectType === "book" ||
-                sidebarSearch === "") && (
-                <div className="mb-6">
-                  {isFocusedMode && !sidebarCollapsed && (
-                    <button
-                      onClick={() => setActiveTab("agenda")}
-                      className="w-full flex items-center px-3 py-2 text-[13px] font-medium rounded-xl text-gray-500 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors mb-2"
-                    >
-                      <ChevronLeft size={14} className="mr-1" /> Back to Catalog
-                    </button>
-                  )}
-                  {!sidebarCollapsed && !isFocusedMode && (
-                    <div className="flex items-center justify-between mb-1 px-3 group">
-                      <div
-                        onClick={() => setActiveTab("books")}
-                        className={`cursor-pointer text-[11px] font-bold uppercase tracking-wider flex items-center hover:text-gray-800 dark:hover:text-gray-300 ${activeTab === "books" ? "text-blue-500" : "text-[#71717a] dark:text-gray-500"}`}
-                      >
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setBooksCollapsed(!booksCollapsed);
-                          }}
-                          className="mr-1 hover:text-gray-900 dark:hover:text-gray-200"
-                        >
-                          {booksCollapsed ? (
-                            <ChevronRight size={12} />
-                          ) : (
-                            <ChevronDown size={12} />
-                          )}
-                        </button>
-                        Books
-                      </div>
-                      <button
-                        onClick={() => {
-                          setBooksCollapsed(false);
-                          setIsNewBookModalOpen(true);
-                        }}
-                        className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <PlusCircle size={14} />
-                      </button>
-                    </div>
-                  )}
-
-                  {(!booksCollapsed || sidebarCollapsed || isFocusedMode) && (
-                    <ul className="space-y-0.5">
-                      <SortableContext
-                        items={booksToRender.map((p: any) => p.id)}
-                        strategy={verticalListSortingStrategy}
-                      >
-                        {booksToRender.map((p: any) => {
-                          const isExpanded = expandedProjects[p.id] === true;
-                          return (
-                            <SortableItem key={p.id} id={p.id}>
-                              <div className="flex items-center group">
-                                <button
-                                  onClick={() => {
-                                    setActiveTab("project" as any);
-                                    setProjectViewMode("toc");
-                                    selectProject(p.id);
-                                  }}
-                                  onContextMenu={(e) => {
-                                    e.preventDefault();
-                                    setContextMenu({
-                                      x: e.clientX,
-                                      y: e.clientY,
-                                      id: p.id,
-                                      name: p.name,
-                                      type: "book",
-                                    });
-                                  }}
-                                  className={`flex-1 flex items-center ${sidebarCollapsed ? "justify-center px-0" : "pl-4 pr-6"} py-1.5 text-[13px] rounded-xl transition-colors ${activeProjectId === p.id && activeTab === "project" ? "bg-[#e4e4e7] dark:bg-white/5 text-[#1c1c1e] dark:text-white font-medium" : "hover:bg-accent hover:text-accent-foreground text-foreground"}`}
-                                >
-                                  {!sidebarCollapsed && (
-                                    <div
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        // Accordion behavior: close others if expanding this one
-                                        setExpandedProjects((prev) => ({
-                                          ...prev,
-                                          [p.id]: !isExpanded,
-                                        }));
-                                      }}
-                                      className="w-5 h-5 flex flex-shrink-0 items-center justify-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors mr-1"
-                                    >
-                                      {isExpanded ? (
-                                        <ChevronDown size={12} />
-                                      ) : (
-                                        <ChevronRight size={12} />
-                                      )}
-                                    </div>
-                                  )}
-                                  <div
-                                    className={`w-2 h-2 rounded-full ${activeProjectId === p.id || p.chapters?.some((c: any) => c.id === activeProjectId) ? p.color : "bg-gray-300 dark:bg-zinc-700"} ${!sidebarCollapsed ? "mr-2" : ""} flex-shrink-0 transition-colors`}
-                                  ></div>
-                                  {!sidebarCollapsed &&
-                                    (renamingProjectId === p.id ? (
-                                      <input
-                                        autoFocus
-                                        value={renamingProjectName}
-                                        onChange={(e) =>
-                                          setRenamingProjectName(e.target.value)
-                                        }
-                                        onKeyDown={(e) => {
-                                          if (e.key === "Enter")
-                                            handleRenameProject(
-                                              p.id,
-                                              renamingProjectName,
-                                            );
-                                          if (e.key === "Escape")
-                                            setRenamingProjectId(null);
-                                        }}
-                                        onClick={(e) => e.stopPropagation()}
-                                        className="bg-transparent border-b border-gray-400 outline-none w-full text-[13px] mr-2"
-                                      />
-                                    ) : (
-                                      <span className="truncate">{p.name}</span>
-                                    ))}
-                                </button>
-                                {!sidebarCollapsed && (
-                                  <button
-                                    onClick={() => setAddingChapterTo(p.id)}
-                                    className="opacity-0 group-hover:opacity-100 px-2 text-gray-400 hover:text-blue-500"
-                                    title="Add Chapter"
-                                  >
-                                    <PlusCircle size={12} />
-                                  </button>
-                                )}
-                              </div>
-
-                              {/* Render Chapters */}
-                              {isExpanded &&
-                                p.chapters &&
-                                p.chapters.length > 0 && (
-                                  <ul className="mt-0.5 space-y-0.5">
-                                    <SortableContext
-                                      items={p.chapters.map((c: any) => c.id)}
-                                      strategy={verticalListSortingStrategy}
-                                    >
-                                      {p.chapters.map((c: any) => (
-                                        <SortableItem
-                                          key={c.id}
-                                          id={c.id}
-                                          isChapter={true}
-                                        >
-                                          <button
-                                            onClick={() => {
-                                              setActiveTab("project" as any);
-                                              setProjectViewMode("toc");
-                                              selectProject(p.id, c.id);
-                                            }}
-                                            className={`w-full flex items-center ${sidebarCollapsed ? "justify-center px-0" : "pl-10 pr-6"} py-1.5 text-[12px] rounded-xl transition-colors ${activeProjectId === c.id && activeTab === "project" ? "bg-[#e4e4e7] dark:bg-white/5 text-[#1c1c1e] dark:text-white font-medium" : "hover:bg-accent hover:text-accent-foreground text-[#71717a] dark:text-gray-400"}`}
-                                          >
-                                            {activeProjectId === c.id ? (
-                                              <div
-                                                className={`w-1.5 h-1.5 rounded-full ${p.color} ${!sidebarCollapsed ? "mr-2" : ""} flex-shrink-0 transition-colors`}
-                                              />
-                                            ) : (
-                                              <CircleDashed
-                                                size={10}
-                                                className={`${!sidebarCollapsed ? "mr-2" : ""} opacity-50 flex-shrink-0`}
-                                              />
-                                            )}
-                                            {!sidebarCollapsed && (
-                                              <span className="truncate">
-                                                {c.name}
-                                              </span>
-                                            )}
-                                          </button>
-                                        </SortableItem>
-                                      ))}
-                                    </SortableContext>
-                                  </ul>
-                                )}
-                            </SortableItem>
-                          );
-                        })}
-                      </SortableContext>
-                    </ul>
-                  )}
-                </div>
-              )}
+                sidebarSearch === "") &&
+                renderSection(
+                  "book",
+                  "Books",
+                  null,
+                  "text-blue-500",
+                  booksToRender,
+                  booksCollapsed,
+                  setBooksCollapsed,
+                  () => setIsNewProjectModalOpen(true, "book"),
+                )}
 
               {/* Archives Section */}
               {archivedToRender.length > 0 &&
@@ -519,140 +631,17 @@ export function LeftSidebar() {
               {/* Courses Section */}
               {(coursesToRender.length > 0 ||
                 addingProjectType === "course" ||
-                sidebarSearch === "") && (
-                <div className="mb-6">
-                  {!sidebarCollapsed && !isFocusedMode && (
-                    <div className="flex items-center justify-between mb-1 px-3 group">
-                      <div
-                        onClick={() => setActiveTab("courses")}
-                        className={`cursor-pointer text-[11px] font-bold uppercase tracking-wider flex items-center hover:text-gray-800 dark:hover:text-gray-300 ${activeTab === "courses" ? "text-purple-500" : "text-[#71717a] dark:text-gray-500"}`}
-                      >
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setCoursesCollapsed(!coursesCollapsed);
-                          }}
-                          className="mr-1 hover:text-gray-900 dark:hover:text-gray-200"
-                        >
-                          {coursesCollapsed ? (
-                            <ChevronRight size={12} />
-                          ) : (
-                            <ChevronDown size={12} />
-                          )}
-                        </button>
-                        COURSES
-                      </div>
-                      <button
-                        onClick={() => {
-                          setCoursesCollapsed(false);
-                          setIsNewCourseModalOpen(true);
-                        }}
-                        className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <PlusCircle size={14} />
-                      </button>
-                    </div>
-                  )}
-
-                  {!coursesCollapsed && (
-                    <ul className="space-y-0.5">
-                      <SortableContext
-                        items={coursesToRender.map((p: any) => p.id)}
-                        strategy={verticalListSortingStrategy}
-                      >
-                        {coursesToRender.map((p: any) => {
-                          const isExpanded = expandedProjects[p.id] === true;
-                          return (
-                            <SortableItem key={p.id} id={p.id}>
-                              <div className="flex items-center group">
-                                {!sidebarCollapsed && (
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setExpandedProjects((prev) => ({
-                                        ...prev,
-                                        [p.id]: !isExpanded,
-                                      }));
-                                    }}
-                                    className="pl-3 pr-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                                  >
-                                    {isExpanded ? (
-                                      <ChevronDown size={12} />
-                                    ) : (
-                                      <ChevronRight size={12} />
-                                    )}
-                                  </button>
-                                )}
-                                <button
-                                  onClick={() => {
-                                    setActiveTab("project" as any);
-                                    setProjectViewMode("toc");
-                                    selectProject(p.id);
-                                  }}
-                                  className={`flex-1 flex items-center ${!sidebarCollapsed ? "px-2" : "px-6"} py-1.5 text-[13px] rounded-xl transition-colors ${activeProjectId === p.id && activeTab === "project" ? "bg-[#e4e4e7] dark:bg-white/5 text-[#1c1c1e] dark:text-white font-medium" : "hover:bg-accent hover:text-accent-foreground text-foreground"}`}
-                                >
-                                  <div
-                                    className={`w-2 h-2 rounded-full ${p.color} mr-2 flex-shrink-0`}
-                                  ></div>
-                                  {!sidebarCollapsed && (
-                                    <span className="truncate">{p.name}</span>
-                                  )}
-                                </button>
-                                <button
-                                  onClick={() => setAddingChapterTo(p.id)}
-                                  className="opacity-0 group-hover:opacity-100 px-2 text-gray-400 hover:text-blue-500"
-                                  title="Add Chapter"
-                                >
-                                  <PlusCircle size={12} />
-                                </button>
-                              </div>
-
-                              {/* Render Chapters */}
-                              {isExpanded &&
-                                p.chapters &&
-                                p.chapters.length > 0 && (
-                                  <ul className="mt-0.5 space-y-0.5">
-                                    <SortableContext
-                                      items={p.chapters.map((c: any) => c.id)}
-                                      strategy={verticalListSortingStrategy}
-                                    >
-                                      {p.chapters.map((c: any) => (
-                                        <SortableItem
-                                          key={c.id}
-                                          id={c.id}
-                                          isChapter={true}
-                                        >
-                                          <button
-                                            onClick={() => {
-                                              setActiveTab("project" as any);
-                                              setProjectViewMode("toc");
-                                              selectProject(p.id, c.id);
-                                            }}
-                                            className={`w-full flex items-center ${sidebarCollapsed ? "justify-center px-0" : "px-3"} pl-10 pr-6 py-1.5 text-[12px] rounded-xl transition-colors ${activeProjectId === c.id && activeTab === "project" ? "bg-[#e4e4e7] dark:bg-white/5 text-[#1c1c1e] dark:text-white font-medium" : "hover:bg-accent hover:text-accent-foreground text-[#71717a] dark:text-gray-400"}`}
-                                          >
-                                            <CircleDashed
-                                              size={10}
-                                              className="mr-2 opacity-50 flex-shrink-0"
-                                            />
-                                            {!sidebarCollapsed && (
-                                              <span className="truncate">
-                                                {c.name}
-                                              </span>
-                                            )}
-                                          </button>
-                                        </SortableItem>
-                                      ))}
-                                    </SortableContext>
-                                  </ul>
-                                )}
-                            </SortableItem>
-                          );
-                        })}
-                      </SortableContext>
-                    </ul>
-                  )}
-                </div>
-              )}
+                sidebarSearch === "") &&
+                renderSection(
+                  "course",
+                  "COURSES",
+                  null,
+                  "text-purple-500",
+                  coursesToRender,
+                  coursesCollapsed,
+                  setCoursesCollapsed,
+                  () => setIsNewProjectModalOpen(true, "course"),
+                )}
             </DndContext>
           </nav>
 
@@ -784,6 +773,24 @@ export function LeftSidebar() {
                     const project = projects.find(
                       (p) => p.id === contextMenu.id,
                     );
+                    setEditingProject(project);
+                    setAddingProjectType(project?.type || "book");
+                    setIsNewProjectModalOpen(true);
+                    setContextMenu(null);
+                  }}
+                  className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-zinc-700 text-gray-700 dark:text-gray-300 flex items-center"
+                >
+                  <Settings size={14} className="mr-2" /> Edit Details
+                </button>
+              )}
+              {(contextMenu.type === "book" ||
+                contextMenu.type === "course") && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const project = projects.find(
+                      (p) => p.id === contextMenu.id,
+                    );
                     if (project?.is_archived) {
                       handleUnarchiveProject(contextMenu.id);
                     } else {
@@ -799,10 +806,53 @@ export function LeftSidebar() {
                     : "Archive"}
                 </button>
               )}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setDeletingItem({
+                    type: contextMenu.type,
+                    id: contextMenu.id,
+                    name: contextMenu.name,
+                  });
+                  setDeleteConfirmOpen(true);
+                  setContextMenu(null);
+                }}
+                className="w-full text-left px-4 py-2 hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 flex items-center"
+              >
+                <Trash2 size={14} className="mr-2" /> Delete
+              </button>
             </div>
           )}
         </aside>
       )}
+
+      {/* Delete Confirm Modal */}
+      <DeleteConfirmModal
+        isOpen={deleteConfirmOpen}
+        onClose={() => {
+          setDeleteConfirmOpen(false);
+          setDeletingItem(null);
+        }}
+        onConfirm={() => {
+          if (!deletingItem) return;
+          if (deletingItem.type === "chapter") {
+            deleteChapter(deletingItem.id);
+          } else {
+            deleteProject(deletingItem.id);
+          }
+        }}
+        title={`Delete ${deletingItem?.type === "chapter" ? "Chapter" : "Project"}`}
+        description={
+          <>
+            Are you sure you want to delete{" "}
+            <strong>{deletingItem?.name}</strong>?
+            {deletingItem?.type !== "chapter" &&
+              " This will also delete all its associated chapters and notes."}{" "}
+            This action cannot be undone.
+          </>
+        }
+        confirmText="Delete"
+      />
     </>
   );
 }

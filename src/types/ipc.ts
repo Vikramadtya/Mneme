@@ -60,12 +60,26 @@ export interface IpcHandlers {
     vaultPath: string,
     projectId: string,
   ) => Promise<IpcResponse>;
+  "db:deleteProject": (
+    vaultPath: string,
+    projectId: string,
+  ) => Promise<IpcResponse>;
+  "db:deleteChapter": (
+    vaultPath: string,
+    chapterId: string,
+  ) => Promise<IpcResponse>;
   "db:getNoteContent": (
     vaultPath: string,
     noteId: string,
   ) => Promise<IpcResponse<string>>;
   "db:saveNote": (vaultPath: string, note: Note) => Promise<IpcResponse>;
   "db:deleteNote": (vaultPath: string, noteId: string) => Promise<IpcResponse>;
+  "db:getTrash": (vaultPath: string) => Promise<IpcResponse>;
+  "db:restoreNote": (
+    vaultPath: string,
+    fileName: string,
+  ) => Promise<IpcResponse>;
+  "db:emptyTrash": (vaultPath: string) => Promise<IpcResponse>;
   "db:logActivity": (
     vaultPath: string,
     date: string,

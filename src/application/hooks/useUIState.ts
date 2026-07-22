@@ -23,6 +23,12 @@ export function useUIState(
   const [newNoteContent, setNewNoteContent] = useState("");
   const [newNoteTitle, setNewNoteTitle] = useState("");
   const [newNoteTags, setNewNoteTags] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [expandedProjects, setExpandedProjects] = useState<
+    Record<string, boolean>
+  >({});
+  const [addingChapterTo, setAddingChapterTo] = useState<string | null>(null);
+  const [trashOpen, setTrashOpen] = useState(false);
 
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editNoteTitle, setEditNoteTitle] = useState("");
@@ -32,7 +38,6 @@ export function useUIState(
   const [editNoteTags, setEditNoteTags] = useState("");
 
   const [newProjectName, setNewProjectName] = useState("");
-  const [addingChapterTo, setAddingChapterTo] = useState<string | null>(null);
   const [newChapterName, setNewChapterName] = useState("");
   const [confirmRestoreNote, setConfirmRestoreNote] = useState<Note | null>(
     null,
@@ -202,7 +207,7 @@ export function useUIState(
 
       if (fullNoteForIpc && vaultPath) {
         ipc
-          .invoke("db:saveNote", vaultPath, fullNoteForIpc, close)
+          .invoke("db:saveNote", vaultPath, fullNoteForIpc)
           .then(async (res: any) => {
             if (res.success && res.formattedContent !== undefined) {
               setEditNoteContent(res.formattedContent);
@@ -377,6 +382,12 @@ export function useUIState(
     setNewNoteTitle,
     newNoteTags,
     setNewNoteTags,
+    searchQuery,
+    setSearchQuery,
+    expandedProjects,
+    setExpandedProjects,
+    trashOpen,
+    setTrashOpen,
     editingNoteId,
     setEditingNoteId,
     editNoteTitle,

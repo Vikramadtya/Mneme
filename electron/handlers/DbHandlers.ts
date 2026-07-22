@@ -6,7 +6,6 @@ import fs from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { LRUCache } from "lru-cache";
-import sharp from "sharp";
 
 const noteContentCache = new LRUCache<string, string>({ max: 100 });
 import {
@@ -19,8 +18,11 @@ import {
   gitCache,
   db,
 } from "../ipcHandlers";
+
+const sharp = customRequire("sharp");
 import { startWatcher, setAppWriting } from "../watcher";
 import { BrowserWindow } from "electron";
+import { store } from "./AppHandlers";
 
 export function registerDbHandlers(ipcMain: any) {
   typedIpcHandle("db:getInitialState", async (_, vaultPath: string) => {
@@ -104,6 +106,8 @@ export function registerDbHandlers(ipcMain: any) {
           content,
           tags: parsedTags,
           chapterId: note.project_id,
+          ai_summary: note.ai_summary,
+          ai_summary_hash: note.ai_summary_hash,
           flashcard: fc
             ? {
                 question: fc.question,
@@ -253,18 +257,118 @@ export function registerDbHandlers(ipcMain: any) {
     },
   );
 
+  typedIpcHandle(
+    "db:deleteProject",
+    async (_, vaultPath: string, projectId: string) => {
+      try {
+        if (!vaultPath) throw new Error("Vault path not set");
+
+        // Compute path before deleting from DB
+        const allProjects = await getDb("SELECT * FROM projects");
+        const projMap = allProjects.reduce((acc: any, p: any) => {
+          acc[p.id] = p;
+          return acc;
+        }, {});
+
+        function buildPath(id: string): string {
+          const p = projMap[id];
+          if (!p) return "";
+          if (!p.parent_id) {
+            const typeDir = p.type === "course" ? "Courses" : "Books";
+            return path.join(typeDir, sanitize(p.name));
+          }
+          return path.join(buildPath(p.parent_id), sanitize(p.name));
+        }
+
+        const base = path.join(vaultPath, "docs");
+        const relPath = buildPath(projectId);
+
+        // We will cascade delete projects, their chapters, and their notes.
+        // First delete notes associated with chapters of this project
+        await runDb(
+          "DELETE FROM notes WHERE project_id IN (SELECT id FROM projects WHERE parent_id = ?)",
+          [projectId],
+        );
+        // Delete chapters
+        await runDb("DELETE FROM projects WHERE parent_id = ?", [projectId]);
+        // Finally delete the project itself
+        await runDb("DELETE FROM projects WHERE id = ?", [projectId]);
+
+        // Delete from file system
+        if (relPath) {
+          const fullPath = path.join(base, relPath);
+          if (await exists(fullPath)) {
+            await fs
+              .rm(fullPath, { recursive: true, force: true })
+              .catch((e: any) => console.error("RM failed:", e));
+          }
+        }
+
+        return { success: true };
+      } catch (error: any) {
+        return { success: false, error: error.message };
+      }
+    },
+  );
+
+  typedIpcHandle(
+    "db:deleteChapter",
+    async (_, vaultPath: string, chapterId: string) => {
+      try {
+        if (!vaultPath) throw new Error("Vault path not set");
+
+        // Compute path before deleting from DB
+        const allProjects = await getDb("SELECT * FROM projects");
+        const projMap = allProjects.reduce((acc: any, p: any) => {
+          acc[p.id] = p;
+          return acc;
+        }, {});
+
+        function buildPath(id: string): string {
+          const p = projMap[id];
+          if (!p) return "";
+          if (!p.parent_id) {
+            const typeDir = p.type === "course" ? "Courses" : "Books";
+            return path.join(typeDir, sanitize(p.name));
+          }
+          return path.join(buildPath(p.parent_id), sanitize(p.name));
+        }
+
+        const base = path.join(vaultPath, "docs");
+        const relPath = buildPath(chapterId);
+
+        // Delete notes associated with this chapter
+        await runDb("DELETE FROM notes WHERE project_id = ?", [chapterId]);
+        // Delete the chapter
+        await runDb("DELETE FROM projects WHERE id = ?", [chapterId]);
+
+        // Delete from file system
+        if (relPath) {
+          const fullPath = path.join(base, relPath);
+          if (await exists(fullPath)) {
+            await fs
+              .rm(fullPath, { recursive: true, force: true })
+              .catch((e: any) => console.error("RM failed:", e));
+          }
+        }
+
+        return { success: true };
+      } catch (error: any) {
+        return { success: false, error: error.message };
+      }
+    },
+  );
+
   // Notes CRUD
   typedIpcHandle(
     "db:getNoteContent",
     async (_, vaultPath: string, noteId: string) => {
-      console.log(`[db:getNoteContent] Called for noteId=${noteId}`);
       try {
         const note = await getDb(
           "SELECT title, project_id FROM notes WHERE id = ?",
           [noteId],
         ).then((r) => r[0]);
         if (!note) {
-          console.log(`[db:getNoteContent] Note not found in DB`);
           return { success: false, error: "Note not found" };
         }
 
@@ -273,15 +377,10 @@ export function registerDbHandlers(ipcMain: any) {
           note.title,
           note.project_id,
         );
-        console.log(`[db:getNoteContent] resolved path=${filePath}`);
         if (await exists(filePath)) {
           const content = await fs.readFile(filePath, "utf-8");
-          console.log(
-            `[db:getNoteContent] File exists, read ${content.length} bytes`,
-          );
           return { success: true, data: content };
         }
-        console.log(`[db:getNoteContent] File does not exist`);
         return { success: true, data: "" };
       } catch (error: any) {
         console.error(`[db:getNoteContent] ERROR:`, error);
@@ -298,9 +397,6 @@ export function registerDbHandlers(ipcMain: any) {
       note: any,
       isExplicitCommit: boolean = false,
     ) => {
-      console.log(
-        `[db:saveNote] Called for noteId=${note.id}, title=${note.title}, content length=${note.content?.length}`,
-      );
       const homeDir = app.getPath("home");
       if (vaultPath && !vaultPath.startsWith(homeDir)) {
         throw new Error(
@@ -331,7 +427,7 @@ export function registerDbHandlers(ipcMain: any) {
         }
 
         await runDb(
-          "INSERT OR REPLACE INTO notes (id, project_id, title, date, time, tags) VALUES (?, ?, ?, ?, ?, ?)",
+          "INSERT OR REPLACE INTO notes (id, project_id, title, date, time, tags, ai_summary, ai_summary_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
           [
             note.id,
             projId,
@@ -339,6 +435,8 @@ export function registerDbHandlers(ipcMain: any) {
             note.date,
             note.time,
             JSON.stringify(note.tags || []),
+            note.ai_summary || null,
+            note.ai_summary_hash || null,
           ],
         );
 
@@ -603,7 +701,13 @@ export function registerDbHandlers(ipcMain: any) {
         await runDb("DELETE FROM flashcards WHERE note_id = ?", [noteId]);
 
         if (filePath && (await exists(filePath))) {
-          await fs.unlink(filePath).catch(() => {});
+          const trashDir = path.join(vaultPath, ".trash");
+          if (!(await exists(trashDir))) {
+            await fs.mkdir(trashDir, { recursive: true });
+          }
+          const fileName = path.basename(filePath);
+          const trashPath = path.join(trashDir, `${Date.now()}_${fileName}`);
+          await fs.rename(filePath, trashPath);
         }
         noteContentCache.delete(noteId);
         return { success: true };
@@ -612,6 +716,72 @@ export function registerDbHandlers(ipcMain: any) {
       }
     },
   );
+
+  typedIpcHandle("db:getTrash", async (_, vaultPath: string) => {
+    try {
+      const trashDir = path.join(vaultPath, ".trash");
+      if (!(await exists(trashDir))) return { success: true, data: [] };
+      const files = await fs.readdir(trashDir);
+      const trashFiles = files
+        .filter((f) => f.endsWith(".md"))
+        .map((f) => {
+          const stats = fsSync.statSync(path.join(trashDir, f));
+          return {
+            fileName: f,
+            originalName: f.split("_").slice(1).join("_") || f,
+            deletedAt: stats.mtime.toISOString(),
+            size: stats.size,
+          };
+        });
+      return { success: true, data: trashFiles };
+    } catch (e: any) {
+      return { success: false, error: e.message };
+    }
+  });
+
+  typedIpcHandle(
+    "db:restoreNote",
+    async (_, vaultPath: string, fileName: string) => {
+      try {
+        const trashDir = path.join(vaultPath, ".trash");
+        const trashPath = path.join(trashDir, fileName);
+        if (!(await exists(trashPath)))
+          throw new Error("File not found in trash");
+
+        const docsDir = path.join(vaultPath, "docs");
+        const originalName = fileName.split("_").slice(1).join("_") || fileName;
+        const restorePath = path.join(docsDir, originalName);
+
+        // If a file with the same name exists, append a timestamp to avoid overwrite
+        let finalRestorePath = restorePath;
+        if (await exists(restorePath)) {
+          finalRestorePath = path.join(
+            docsDir,
+            `${Date.now()}_${originalName}`,
+          );
+        }
+
+        await fs.rename(trashPath, finalRestorePath);
+        return { success: true };
+      } catch (e: any) {
+        return { success: false, error: e.message };
+      }
+    },
+  );
+
+  typedIpcHandle("db:emptyTrash", async (_, vaultPath: string) => {
+    try {
+      const trashDir = path.join(vaultPath, ".trash");
+      if (!(await exists(trashDir))) return { success: true };
+      const files = await fs.readdir(trashDir);
+      for (const file of files) {
+        await fs.unlink(path.join(trashDir, file)).catch(() => {});
+      }
+      return { success: true };
+    } catch (e: any) {
+      return { success: false, error: e.message };
+    }
+  });
 
   let isSyncing = false;
   typedIpcHandle("db:syncFromVault", async (_, vaultPath: string) => {
@@ -903,20 +1073,40 @@ export function registerDbHandlers(ipcMain: any) {
     try {
       const rows = await getDb("SELECT key, value FROM settings");
       const settings: Record<string, string> = {};
+      const encryptedKeys = [
+        "gitGithubToken",
+        "openAiKey",
+        "anthropicKey",
+        "geminiKey",
+      ];
+
+      // Load non-encrypted keys from SQLite
       (rows || []).forEach((r) => {
-        if (r.key === "gitGithubToken" && safeStorage.isEncryptionAvailable()) {
-          try {
-            settings[r.key] = safeStorage.decryptString(
-              Buffer.from(r.value, "base64"),
-            );
-          } catch (e) {
-            console.error(e);
-            settings[r.key] = r.value;
-          }
-        } else {
+        if (!encryptedKeys.includes(r.key)) {
           settings[r.key] = r.value;
         }
       });
+
+      // Load encrypted keys from electron-store
+      encryptedKeys.forEach((key) => {
+        const val = store.get(key) as string | undefined;
+        if (val) {
+          if (safeStorage.isEncryptionAvailable()) {
+            try {
+              settings[key] = safeStorage.decryptString(
+                Buffer.from(val, "base64"),
+              );
+            } catch (e) {
+              console.error(`Failed to decrypt ${key}:`, e);
+              // Fallback just in case it was stored unencrypted
+              settings[key] = val;
+            }
+          } else {
+            settings[key] = val;
+          }
+        }
+      });
+
       return { success: true, data: settings };
     } catch (err: any) {
       return { success: false, error: err.message };
@@ -924,15 +1114,25 @@ export function registerDbHandlers(ipcMain: any) {
   });
 
   typedIpcHandle("db:saveSetting", async (_, key: string, value: string) => {
-    let finalValue = value;
-    if (key === "gitGithubToken" && safeStorage.isEncryptionAvailable()) {
-      finalValue = safeStorage.encryptString(value).toString("base64");
-    }
+    const encryptedKeys = [
+      "gitGithubToken",
+      "openAiKey",
+      "anthropicKey",
+      "geminiKey",
+    ];
     try {
-      await runDb(
-        "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
-        [key, finalValue],
-      );
+      if (encryptedKeys.includes(key)) {
+        let finalValue = value;
+        if (safeStorage.isEncryptionAvailable()) {
+          finalValue = safeStorage.encryptString(value).toString("base64");
+        }
+        store.set(key, finalValue);
+      } else {
+        await runDb(
+          "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
+          [key, value],
+        );
+      }
       return { success: true };
     } catch (err: any) {
       return { success: false, error: err.message };
@@ -944,15 +1144,25 @@ export function registerDbHandlers(ipcMain: any) {
     async (_, settings: Record<string, string>) => {
       try {
         await runDb("BEGIN TRANSACTION");
+        const encryptedKeys = [
+          "gitGithubToken",
+          "openAiKey",
+          "anthropicKey",
+          "geminiKey",
+        ];
         for (const [key, value] of Object.entries(settings)) {
-          let finalValue = value;
-          if (key === "gitGithubToken" && safeStorage.isEncryptionAvailable()) {
-            finalValue = safeStorage.encryptString(value).toString("base64");
+          if (encryptedKeys.includes(key)) {
+            let finalValue = value;
+            if (safeStorage.isEncryptionAvailable()) {
+              finalValue = safeStorage.encryptString(value).toString("base64");
+            }
+            store.set(key, finalValue);
+          } else {
+            await runDb(
+              "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
+              [key, value],
+            );
           }
-          await runDb(
-            "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
-            [key, finalValue],
-          );
         }
         await runDb("COMMIT");
         return { success: true };

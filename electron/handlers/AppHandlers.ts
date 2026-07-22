@@ -7,7 +7,7 @@ import { getDb } from "../ipcHandlers";
 import Store from "electron-store";
 import type { ChildProcess } from "node:child_process";
 
-const store = new Store();
+export const store = new Store();
 let mkdocsProcess: ChildProcess | null = null;
 
 export function registerAppHandlers(ipcMain: any) {

@@ -1,6 +1,4 @@
-import type { IpcHandlers, IpcResponse } from "../types/ipc";
-
-export type { IpcResponse };
+import type { IpcHandlers } from "../types/ipc";
 
 export const ipc = {
   invoke: <K extends keyof IpcHandlers>(

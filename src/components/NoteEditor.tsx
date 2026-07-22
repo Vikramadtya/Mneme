@@ -22,14 +22,35 @@ import {
   Link,
   List,
   Layers,
+  Sparkles,
 } from "lucide-react";
 import { useVault, useNotes, useUI, useReview } from "../application/context";
 import { type Note } from "../domain/models";
 import { preprocessMarkdown } from "../utils/markdownUtils";
 import { Tooltip } from "./Tooltip";
+import { DeleteConfirmModal } from "./DeleteConfirmModal";
 import { useDebounce, useDebouncedCallback } from "use-debounce";
 import Skeleton from "react-loading-skeleton";
 import "react-loading-skeleton/dist/skeleton.css";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+  DialogClose,
+} from "./ui/dialog";
+
+function hashString(str: string): string {
+  let hash = 0;
+  for (let i = 0, len = str.length; i < len; i++) {
+    let chr = str.charCodeAt(i);
+    hash = (hash << 5) - hash + chr;
+    hash |= 0;
+  }
+  return hash.toString(16);
+}
 
 export function NoteEditor({ note }: { note: any }) {
   const vaultPath = useVault((s) => s.vaultPath);
@@ -85,6 +106,160 @@ export function NoteEditor({ note }: { note: any }) {
 
   const [localContent, setLocalContent] = useState(editNoteContent);
   const [viewContent, setViewContent] = useState(note.content || "");
+  const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+  const [aiSummaryPopup, setAiSummaryPopup] = useState<string | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+
+  const handleAIReadSummary = async () => {
+    try {
+      const currentHash = hashString(viewContent || "");
+      if (note.ai_summary_hash === currentHash && note.ai_summary) {
+        setAiSummaryPopup(note.ai_summary);
+        return;
+      }
+      setIsGeneratingAI(true);
+      uiShowToast(
+        "Generating AI Summary (this may take a few seconds)...",
+        "info",
+      );
+      const { aiClient } = await import("../ai/client");
+      const model =
+        vaultSettings.aiSummaryModel ||
+        "onnx-community/SmolLM2-135M-Instruct-ONNX";
+      const summary = await aiClient.generateSummary(
+        viewContent,
+        model,
+        {
+          temperature: vaultSettings.aiTemperature,
+          max_new_tokens: vaultSettings.aiMaxTokens,
+          repetition_penalty: vaultSettings.aiRepetitionPenalty,
+        },
+        {
+          openAiKey: vaultSettings.openAiKey,
+          anthropicKey: vaultSettings.anthropicKey,
+          geminiKey: vaultSettings.geminiKey,
+        },
+      );
+      if (summary) {
+        setAiSummaryPopup(summary);
+        const updatedNote = {
+          ...note,
+          ai_summary: summary,
+          ai_summary_hash: currentHash,
+        };
+        delete updatedNote.content; // Prevent overwriting the file with empty string!
+        if (vaultPath) {
+          await ipc.invoke("db:saveNote", vaultPath, updatedNote);
+          note.ai_summary = summary;
+          note.ai_summary_hash = currentHash;
+        }
+      }
+    } catch (e: any) {
+      uiShowToast("AI Generation failed: " + e.message, "error");
+    } finally {
+      setIsGeneratingAI(false);
+    }
+  };
+
+  const handleAIGenerate = async (type: "summary" | "tags") => {
+    try {
+      setIsGeneratingAI(true);
+      uiShowToast(
+        `Generating AI ${type === "summary" ? "Summary" : "Tags"} (this may take a few seconds)...`,
+        "info",
+      );
+      const { aiClient } = await import("../ai/client");
+
+      if (type === "summary") {
+        const currentHash = hashString(localContent || "");
+        if (note.ai_summary_hash === currentHash && note.ai_summary) {
+          setAiSummaryPopup(note.ai_summary);
+          setIsGeneratingAI(false);
+          return;
+        }
+        const model =
+          vaultSettings.aiSummaryModel ||
+          "onnx-community/SmolLM2-135M-Instruct-ONNX";
+        const summary = await aiClient.generateSummary(
+          localContent,
+          model,
+          {
+            temperature: vaultSettings.aiTemperature,
+            max_new_tokens: vaultSettings.aiMaxTokens,
+            repetition_penalty: vaultSettings.aiRepetitionPenalty,
+          },
+          {
+            openAiKey: vaultSettings.openAiKey,
+            anthropicKey: vaultSettings.anthropicKey,
+            geminiKey: vaultSettings.geminiKey,
+          },
+        );
+        if (summary) {
+          setAiSummaryPopup(summary);
+          const updatedNote = {
+            ...note,
+            ai_summary: summary,
+            ai_summary_hash: currentHash,
+            content: localContent,
+            title: editNoteTitle,
+          };
+          if (vaultPath) {
+            await ipc.invoke("db:saveNote", vaultPath, updatedNote);
+            note.ai_summary = summary;
+            note.ai_summary_hash = currentHash;
+          }
+        }
+      } else if (type === "tags") {
+        const model =
+          vaultSettings.aiTagModel ||
+          "onnx-community/SmolLM2-135M-Instruct-ONNX";
+        // Collect existing unique tags from the vault
+        const existingTags = Array.from(
+          new Set(
+            allNotesFlat.flatMap((n) =>
+              n.metadata?.tags
+                ? n.metadata.tags
+                    .split(",")
+                    .map((t) => t.trim())
+                    .filter(Boolean)
+                : [],
+            ),
+          ),
+        );
+
+        const tags = await aiClient.generateTags(
+          localContent,
+          model,
+          existingTags,
+          {
+            temperature: vaultSettings.aiTemperature,
+            repetition_penalty: vaultSettings.aiRepetitionPenalty,
+          },
+          {
+            openAiKey: vaultSettings.openAiKey,
+            anthropicKey: vaultSettings.anthropicKey,
+            geminiKey: vaultSettings.geminiKey,
+          },
+        );
+        if (tags && tags.length > 0) {
+          const currentTags = editNoteTags
+            ? editNoteTags
+                .split(",")
+                .map((t) => t.trim())
+                .filter(Boolean)
+            : [];
+          const newTags = Array.from(new Set([...currentTags, ...tags]));
+          setEditNoteTags(newTags.join(", "));
+          uiShowToast("AI Tags generated successfully!", "success");
+        }
+      }
+    } catch (e: any) {
+      uiShowToast("AI Generation failed: " + e.message, "error");
+    } finally {
+      setIsGeneratingAI(false);
+    }
+  };
+
   const [isLoadingContent, setIsLoadingContent] = useState(false);
 
   // Lazy-load content for the read/view mode when note is rendered
@@ -345,6 +520,20 @@ export function NoteEditor({ note }: { note: any }) {
         </div>
         {editingNoteId !== note.id && (
           <div className="opacity-0 group-hover:opacity-100 flex gap-2 transition-opacity">
+            {vaultSettings.aiEnabled === "true" && (
+              <Tooltip content={isGeneratingAI ? "Thinking..." : "AI Summary"}>
+                <button
+                  onClick={handleAIReadSummary}
+                  disabled={isGeneratingAI}
+                  className={`transition-colors ${isGeneratingAI ? "text-purple-300" : "text-purple-500 hover:text-purple-600"} disabled:opacity-50`}
+                >
+                  <Sparkles
+                    size={16}
+                    className={isGeneratingAI ? "animate-pulse" : ""}
+                  />
+                </button>
+              </Tooltip>
+            )}
             <Tooltip content="Favourite">
               <button
                 onClick={() => toggleFavourite(note.id)}
@@ -354,18 +543,6 @@ export function NoteEditor({ note }: { note: any }) {
                   size={16}
                   fill={note.favourite ? "currentColor" : "none"}
                 />
-              </button>
-            </Tooltip>
-            <Tooltip content="Split Right">
-              <button
-                onClick={() =>
-                  setSplitPaneNoteId(
-                    note.id === splitPaneNoteId ? null : note.id,
-                  )
-                }
-                className="text-gray-400 hover:text-indigo-500 transition-colors"
-              >
-                <Square size={16} />
               </button>
             </Tooltip>
             <Tooltip content="View History">
@@ -386,7 +563,7 @@ export function NoteEditor({ note }: { note: any }) {
             </Tooltip>
             <Tooltip content="Delete Note">
               <button
-                onClick={() => handleDeleteNote(note.id)}
+                onClick={() => setDeleteConfirmOpen(true)}
                 className="text-gray-400 hover:text-red-500 transition-colors"
               >
                 <Trash2 size={16} />
@@ -616,22 +793,46 @@ export function NoteEditor({ note }: { note: any }) {
               />
             </div>
 
-            <div className="flex justify-end gap-3 pt-2">
-              <button
-                onClick={() => setEditingNoteId(null)}
-                className="px-4 py-2 rounded-lg font-medium text-gray-500 hover:bg-accent hover:text-accent-foreground"
-              >
-                Close
-              </button>
-              <button
-                onClick={() => {
-                  debouncedSave.cancel();
-                  saveEdit(true, localContent);
-                }}
-                className="px-4 py-2 rounded-lg font-medium bg-[#007aff] text-white hover:bg-blue-600 flex items-center"
-              >
-                <Save size={16} className="mr-2" /> Done
-              </button>
+            <div className="flex justify-between items-center pt-2">
+              <div className="flex items-center gap-2">
+                {vaultSettings.aiEnabled === "true" && (
+                  <div className="flex bg-[#f4f4f5] dark:bg-[#252528] rounded-lg p-1">
+                    <button
+                      onClick={() => handleAIGenerate("summary")}
+                      disabled={isGeneratingAI || !localContent}
+                      className="px-3 py-1.5 rounded-md text-xs font-semibold text-purple-600 dark:text-purple-400 hover:bg-white dark:hover:bg-[#333336] transition-colors disabled:opacity-50 flex items-center"
+                    >
+                      <Sparkles size={12} className="mr-1.5" />
+                      {isGeneratingAI ? "Thinking..." : "AI Summary"}
+                    </button>
+                    <button
+                      onClick={() => handleAIGenerate("tags")}
+                      disabled={isGeneratingAI || !localContent}
+                      className="px-3 py-1.5 rounded-md text-xs font-semibold text-purple-600 dark:text-purple-400 hover:bg-white dark:hover:bg-[#333336] transition-colors disabled:opacity-50 flex items-center"
+                    >
+                      <Hash size={12} className="mr-1.5" />
+                      {isGeneratingAI ? "Thinking..." : "AI Tags"}
+                    </button>
+                  </div>
+                )}
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setEditingNoteId(null)}
+                  className="px-4 py-2 rounded-lg font-medium text-gray-500 hover:bg-accent hover:text-accent-foreground"
+                >
+                  Close
+                </button>
+                <button
+                  onClick={() => {
+                    debouncedSave.cancel();
+                    saveEdit(true, localContent);
+                  }}
+                  className="px-4 py-2 rounded-lg font-medium bg-[#007aff] text-white hover:bg-blue-600 flex items-center"
+                >
+                  <Save size={16} className="mr-2" /> Done
+                </button>
+              </div>
             </div>
           </div>
         ) : (
@@ -707,6 +908,36 @@ export function NoteEditor({ note }: { note: any }) {
           })()}
         </div>
       </div>
+
+      <Dialog
+        open={!!aiSummaryPopup}
+        onOpenChange={(open) => !open && setAiSummaryPopup(null)}
+      >
+        <DialogContent className="sm:max-w-[90vw] lg:max-w-[80vw] w-[95vw] bg-white dark:bg-[#1a1a1c] border border-border">
+          <DialogHeader>
+            <DialogTitle className="flex items-center text-foreground font-bold text-lg mb-2">
+              <Sparkles className="w-5 h-5 mr-2 text-purple-500" /> AI Summary
+            </DialogTitle>
+          </DialogHeader>
+          <div className="max-h-[75vh] overflow-y-auto pr-4">
+            <MarkdownRenderer content={aiSummaryPopup || ""} />
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <DeleteConfirmModal
+        isOpen={deleteConfirmOpen}
+        onClose={() => setDeleteConfirmOpen(false)}
+        onConfirm={() => handleDeleteNote(note.id)}
+        title="Delete Note"
+        description={
+          <>
+            Are you sure you want to delete <strong>{note.title}</strong>? It
+            will be moved to the Trash.
+          </>
+        }
+        confirmText="Delete Note"
+      />
     </div>
   );
 }

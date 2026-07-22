@@ -203,6 +203,42 @@ export function useNotesState(
     [vaultPath, loadDataFromVault, showToast],
   );
 
+  const deleteProject = useCallback(
+    async (projectId: string) => {
+      if (!vaultPath) return;
+      try {
+        const res = await ipc.invoke("db:deleteProject", vaultPath, projectId);
+        if (res.success) {
+          await loadDataFromVault(vaultPath);
+          showToast("Project deleted successfully", "success");
+        } else {
+          showToast("Failed to delete project: " + res.error, "error");
+        }
+      } catch (e: any) {
+        showToast("Error deleting project: " + e.message, "error");
+      }
+    },
+    [vaultPath, loadDataFromVault, showToast],
+  );
+
+  const deleteChapter = useCallback(
+    async (chapterId: string) => {
+      if (!vaultPath) return;
+      try {
+        const res = await ipc.invoke("db:deleteChapter", vaultPath, chapterId);
+        if (res.success) {
+          await loadDataFromVault(vaultPath);
+          showToast("Chapter deleted successfully", "success");
+        } else {
+          showToast("Failed to delete chapter: " + res.error, "error");
+        }
+      } catch (e: any) {
+        showToast("Error deleting chapter: " + e.message, "error");
+      }
+    },
+    [vaultPath, loadDataFromVault, showToast],
+  );
+
   const handleAddNote = useCallback(
     async (
       projectId: string,
@@ -401,5 +437,7 @@ export function useNotesState(
     setActiveProjectId,
     handleArchiveProject,
     handleUnarchiveProject,
+    deleteProject,
+    deleteChapter,
   };
 }

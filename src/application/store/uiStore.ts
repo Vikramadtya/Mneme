@@ -11,9 +11,8 @@ interface UIState {
   splitPaneNoteId: string | null;
   searchOpen: boolean;
   settingsOpen: boolean;
-  isNewBookModalOpen: boolean;
-  isNewCourseModalOpen: boolean;
-  settingsTab: "general" | "git" | "mkdocs" | "appearance";
+  isNewProjectModalOpen: boolean;
+  settingsTab: "general" | "git" | "mkdocs" | "appearance" | "ai" | "data";
   searchQuery: string;
   zenMode: boolean;
   sidebarCollapsed: boolean;
@@ -35,9 +34,10 @@ interface UIState {
   setSplitPaneNoteId: (id: string | null) => void;
   setSearchOpen: (open: boolean) => void;
   setSettingsOpen: (open: boolean) => void;
-  setIsNewBookModalOpen: (open: boolean) => void;
-  setIsNewCourseModalOpen: (open: boolean) => void;
-  setSettingsTab: (tab: "general" | "git" | "mkdocs" | "appearance") => void;
+  setIsNewProjectModalOpen: (open: boolean, type?: "book" | "course") => void;
+  setSettingsTab: (
+    tab: "general" | "git" | "mkdocs" | "appearance" | "ai" | "data",
+  ) => void;
   setSearchQuery: (query: string) => void;
   setZenMode: (mode: boolean) => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
@@ -56,8 +56,8 @@ export const useUIStore = create<UIState>((set) => ({
   splitPaneNoteId: null,
   searchOpen: false,
   settingsOpen: false,
-  isNewBookModalOpen: false,
-  isNewCourseModalOpen: false,
+  isNewProjectModalOpen: false,
+
   settingsTab: "general",
   searchQuery: "",
   zenMode: false,
@@ -86,8 +86,11 @@ export const useUIStore = create<UIState>((set) => ({
   setSplitPaneNoteId: (id) => set({ splitPaneNoteId: id }),
   setSearchOpen: (open) => set({ searchOpen: open }),
   setSettingsOpen: (open) => set({ settingsOpen: open }),
-  setIsNewBookModalOpen: (open) => set({ isNewBookModalOpen: open }),
-  setIsNewCourseModalOpen: (open) => set({ isNewCourseModalOpen: open }),
+  setIsNewProjectModalOpen: (open, type) =>
+    set((state) => ({
+      isNewProjectModalOpen: open,
+      addingProjectType: type || state.addingProjectType,
+    })),
   setSettingsTab: (tab) => set({ settingsTab: tab }),
   setSearchQuery: (query) => set({ searchQuery: query }),
   setZenMode: (mode) => set({ zenMode: mode }),

@@ -18,6 +18,7 @@ export function useVaultState(
 
   const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
   const [gitStatusForSync, setGitStatusForSync] = useState<any>(null);
+  const [editingProject, setEditingProject] = useState<any | null>(null);
 
   const performActualSync = useCallback(
     async (commitMessage?: string) => {
@@ -73,8 +74,8 @@ export function useVaultState(
   const handleSelectVault = useCallback(async () => {
     try {
       const vPath = await ipc.invoke("app:selectVault");
-      if (vPath) {
-        setVaultPath(vPath);
+      if (vPath && vPath.success && vPath.data) {
+        setVaultPath(vPath.data);
       }
     } catch (e: any) {
       showToast("Failed to select vault: " + e.message, "error");
@@ -177,5 +178,7 @@ export function useVaultState(
     setIsSyncModalOpen,
     gitStatusForSync,
     setGitStatusForSync,
+    editingProject,
+    setEditingProject,
   };
 }

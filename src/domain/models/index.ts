@@ -18,6 +18,9 @@ export interface Note {
   content?: string; // Content is often lazy-loaded
   flashcard?: FlashcardData;
   favourite?: boolean;
+  metadata?: any;
+  ai_summary?: string;
+  ai_summary_hash?: string;
 }
 
 export interface Chapter {
@@ -67,6 +70,17 @@ export interface VaultSettings {
   mkdocsAuthor?: string;
   mkdocsDescription?: string;
   mkdocsSiteUrl?: string;
+  aiSummaryModel?: string;
+  aiTagModel?: string;
+  aiEnabled?: string;
+  llmType?: "local" | "cloud";
+  aiTemperature?: number;
+  aiMaxTokens?: number;
+  aiRepetitionPenalty?: number;
+  openAiKey?: string;
+  anthropicKey?: string;
+  geminiKey?: string;
+  autoFormatOnSave?: string;
 }
 
 export interface Commit {
@@ -74,17 +88,4 @@ export interface Commit {
   date: string;
   message: string;
   author_name: string;
-}
-
-export interface UndoOperation {
-  noteToDelete?: Note;
-  projId?: string;
-  undoTimeout?: ReturnType<typeof setTimeout>;
-  toastId?: string;
-}
-
-export interface Toast {
-  id: string;
-  message: string;
-  type: "success" | "error" | "info";
 }

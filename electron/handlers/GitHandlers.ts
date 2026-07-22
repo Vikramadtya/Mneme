@@ -9,6 +9,7 @@ import {
   customRequire,
   gitCache,
 } from "../ipcHandlers";
+import { store } from "./AppHandlers";
 
 export function registerGitHandlers(ipcMain: any) {
   typedIpcHandle("git:status", async (_, vaultPath: string) => {
@@ -83,7 +84,7 @@ export function registerGitHandlers(ipcMain: any) {
       await git.branch(["-m", currentBranch]);
 
       const settingsRows = await getDb(
-        "SELECT key, value FROM settings WHERE key IN ('gitRemoteUrl', 'gitGithubToken')",
+        "SELECT key, value FROM settings WHERE key IN ('gitRemoteUrl')",
       );
 
       let remoteUrl: string | null = null;
@@ -91,16 +92,21 @@ export function registerGitHandlers(ipcMain: any) {
 
       for (const row of settingsRows) {
         if (row.key === "gitRemoteUrl") remoteUrl = row.value;
-        if (row.key === "gitGithubToken") {
-          let val = row.value;
-          if (val && safeStorage.isEncryptionAvailable()) {
-            try {
-              val = safeStorage.decryptString(Buffer.from(val, "base64"));
-            } catch (e) {
-              console.error(e);
-            }
+      }
+
+      const tokenVal = store.get("gitGithubToken") as string | undefined;
+      if (tokenVal) {
+        if (safeStorage.isEncryptionAvailable()) {
+          try {
+            githubToken = safeStorage.decryptString(
+              Buffer.from(tokenVal, "base64"),
+            );
+          } catch (e) {
+            console.error(e);
+            githubToken = tokenVal;
           }
-          githubToken = val;
+        } else {
+          githubToken = tokenVal;
         }
       }
 
@@ -297,7 +303,7 @@ export function registerGitHandlers(ipcMain: any) {
 
       // Push to remote if configured
       const settingsRows = await getDb(
-        "SELECT key, value FROM settings WHERE key IN ('gitRemoteUrl', 'gitGithubToken', 'githubActions')",
+        "SELECT key, value FROM settings WHERE key IN ('gitRemoteUrl', 'githubActions')",
       );
 
       let remoteUrl: string | null = null;
@@ -307,16 +313,21 @@ export function registerGitHandlers(ipcMain: any) {
       for (const row of settingsRows) {
         if (row.key === "gitRemoteUrl") remoteUrl = row.value;
         if (row.key === "githubActions") ghActions = row.value;
-        if (row.key === "gitGithubToken") {
-          let val = row.value;
-          if (val && safeStorage.isEncryptionAvailable()) {
-            try {
-              val = safeStorage.decryptString(Buffer.from(val, "base64"));
-            } catch (e) {
-              console.error(e);
-            }
+      }
+
+      const tokenVal = store.get("gitGithubToken") as string | undefined;
+      if (tokenVal) {
+        if (safeStorage.isEncryptionAvailable()) {
+          try {
+            githubToken = safeStorage.decryptString(
+              Buffer.from(tokenVal, "base64"),
+            );
+          } catch (e) {
+            console.error(e);
+            githubToken = tokenVal;
           }
-          githubToken = val;
+        } else {
+          githubToken = tokenVal;
         }
       }
 

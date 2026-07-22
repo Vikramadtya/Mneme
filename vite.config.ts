@@ -15,15 +15,15 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
-    exclude: ["better-sqlite3"],
+    exclude: ["better-sqlite3", "sharp"],
   },
   build: {
     rollupOptions: {
-      external: ["better-sqlite3", "simple-git"],
+      external: ["better-sqlite3", "simple-git", /^sharp(?:\/.*)?$/],
     },
   },
   ssr: {
-    external: ["better-sqlite3", "simple-git"],
+    external: ["better-sqlite3", "simple-git", "sharp"],
   },
   plugins: [
     tailwindcss(),
@@ -38,14 +38,14 @@ export default defineConfig({
         entry: "electron/main.ts",
         vite: {
           ssr: {
-            external: ["better-sqlite3", "simple-git"],
+            external: ["better-sqlite3", "simple-git", "sharp"],
           },
           optimizeDeps: {
-            exclude: ["better-sqlite3"],
+            exclude: ["better-sqlite3", "sharp"],
           },
           build: {
             rollupOptions: {
-              external: ["better-sqlite3", "simple-git"],
+              external: ["better-sqlite3", "simple-git", /^sharp(?:\/.*)?$/],
             },
           },
         },
