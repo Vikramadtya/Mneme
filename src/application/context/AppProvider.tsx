@@ -87,7 +87,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // 1. Initial App Load — run once on mount
   useEffect(() => {
     const initApp = async () => {
-      const configRes = await ipc.getConfig();
+      const configRes = await ipc.invoke("app:getConfig");
       const vPath = configRes.data?.vaultPath;
       if (vPath) {
         vaultState.setVaultPath(vPath);
@@ -112,8 +112,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (vaultState.vaultPath && !vaultState.syncing) {
       const unsub = ipc.on("vault-file-changed", async () => {
         try {
-          await ipc.syncFromVault(vaultState.vaultPath!);
-          const dbRes = await ipc.getInitialState(vaultState.vaultPath!);
+          await ipc.invoke("db:syncFromVault", vaultState.vaultPath!);
+          const dbRes = await ipc.invoke(
+            "db:getInitialState",
+            vaultState.vaultPath!,
+          );
           if (dbRes.success && dbRes.data) {
             notesState.setProjects(dbRes.data.projects || []);
             notesState.setAllNotesMap(dbRes.data.allNotesMap || {});

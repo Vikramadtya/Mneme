@@ -37,10 +37,10 @@
 }
 
 @layer utilities {
-  .shadow-xl shadow-zinc-200/50 {
+  .shadow-xl {
     box-shadow: 0 2px 10px rgba(0,0,0,0.03), 0 10px 30px rgba(0,0,0,0.04);
   }
-  .shadow-2xl shadow-black/40 {
+  .shadow-2xl {
     box-shadow: 0 2px 10px rgba(0,0,0,0.2), 0 10px 30px rgba(0,0,0,0.3);
   }
 }

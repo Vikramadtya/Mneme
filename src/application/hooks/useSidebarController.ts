@@ -73,7 +73,7 @@ export function useSidebarController() {
     if (!target) return;
 
     target.name = newName;
-    if (vaultPath) await ipc.saveProject(vaultPath, target);
+    if (vaultPath) await ipc.invoke("db:saveProject", vaultPath, target);
     setRenamingProjectId(null);
   };
 
@@ -107,7 +107,7 @@ export function useSidebarController() {
             if (vaultPath) {
               newChapters.forEach((ch: any, idx: number) => {
                 ch.sort_order = idx;
-                ipc.saveProject(vaultPath, ch);
+                ipc.invoke("db:saveProject", vaultPath, ch);
               });
             }
             return { ...p, chapters: newChapters };
@@ -123,7 +123,7 @@ export function useSidebarController() {
         if (vaultPath) {
           newItems.forEach((proj: any, idx: number) => {
             proj.sort_order = idx;
-            ipc.saveProject(vaultPath, proj);
+            ipc.invoke("db:saveProject", vaultPath, proj);
           });
         }
         return newItems;
@@ -137,7 +137,7 @@ export function useSidebarController() {
     if (movingItem.type === "note") {
       const note = allNotesFlat.find((n: any) => n.id === movingItem.id);
       if (note && note.project_id !== newParentId) {
-        await ipc.saveNote(vaultPath, {
+        await ipc.invoke("db:saveNote", vaultPath, {
           ...note,
           chapterId: newParentId,
           project_id: newParentId,
@@ -150,7 +150,10 @@ export function useSidebarController() {
           .flatMap((pr: any) => pr.chapters || [])
           .find((c: Project) => c.id === movingItem.id);
       if (p && newParentId && p.id !== newParentId) {
-        await ipc.saveProject(vaultPath, { ...p, parent_id: newParentId });
+        await ipc.invoke("db:saveProject", vaultPath, {
+          ...p,
+          parent_id: newParentId,
+        });
       }
     }
     setMovingItem(null);

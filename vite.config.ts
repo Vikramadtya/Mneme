@@ -3,8 +3,8 @@ import path from "node:path";
 import electron from "vite-plugin-electron/simple";
 import reactSWC from "@vitejs/plugin-react-swc";
 import tailwindcss from "@tailwindcss/vite";
-import million from "million/compiler";
 import AutoImport from "unplugin-auto-import/vite";
+import checker from "vite-plugin-checker";
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -15,20 +15,20 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
-    exclude: ["better-sqlite3"],
+    exclude: ["better-sqlite3", "sharp"],
   },
   build: {
     rollupOptions: {
-      external: ["better-sqlite3", "simple-git"],
+      external: ["better-sqlite3", "simple-git", /^sharp(?:\/.*)?$/],
     },
   },
   ssr: {
-    external: ["better-sqlite3", "simple-git"],
+    external: ["better-sqlite3", "simple-git", "sharp"],
   },
   plugins: [
-    million.vite({ auto: true }),
     tailwindcss(),
     reactSWC(),
+    checker({ typescript: true }),
     AutoImport({
       imports: ["react"],
       dts: true,
@@ -38,14 +38,14 @@ export default defineConfig({
         entry: "electron/main.ts",
         vite: {
           ssr: {
-            external: ["better-sqlite3", "simple-git"],
+            external: ["better-sqlite3", "simple-git", "sharp"],
           },
           optimizeDeps: {
-            exclude: ["better-sqlite3"],
+            exclude: ["better-sqlite3", "sharp"],
           },
           build: {
             rollupOptions: {
-              external: ["better-sqlite3", "simple-git"],
+              external: ["better-sqlite3", "simple-git", /^sharp(?:\/.*)?$/],
             },
           },
         },

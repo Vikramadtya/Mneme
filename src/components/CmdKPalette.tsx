@@ -29,7 +29,7 @@ export function CmdKPalette() {
     const search = async () => {
       setIsSearching(true);
       try {
-        const res = await ipc.searchNotes(debouncedSearchQuery);
+        const res = await ipc.invoke("db:searchNotes", debouncedSearchQuery);
         if (res.success && res.data) {
           setResults(res.data);
         } else {

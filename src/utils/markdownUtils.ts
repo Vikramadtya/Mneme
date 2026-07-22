@@ -65,9 +65,9 @@ export const preprocessMarkdown = (text: string | undefined): string => {
         }
       }
     } else {
-      if (line.startsWith("    ") || line.startsWith("\t")) {
+      if (/^ {2,4}/.test(line) || line.startsWith("\t")) {
         // Indented content
-        lines[i] = line.replace(/^( {4}|\t)/, ""); // Remove 1 level of indent for HTML block
+        lines[i] = line.replace(/^( {2,4}|\t)/, ""); // Remove indent for HTML block
       } else if (line.trim() === "") {
         // Empty line inside admonition
         lines[i] = `\n`;

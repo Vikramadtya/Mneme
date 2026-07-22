@@ -21,7 +21,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error("Uncaught error:", error, errorInfo);
-    ipc.reportError({
+    ipc.invoke("app:reportError", {
       message: error.message,
       stack: error.stack,
       componentStack: errorInfo.componentStack,

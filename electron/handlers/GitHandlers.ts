@@ -1,6 +1,7 @@
 import { safeStorage, app } from "electron";
 import path from "node:path";
 import fsSync from "node:fs";
+import { typedIpcHandle } from "../typedIpc";
 import {
   getDb,
   runDb,
@@ -8,9 +9,134 @@ import {
   customRequire,
   gitCache,
 } from "../ipcHandlers";
+import { store } from "./AppHandlers";
 
 export function registerGitHandlers(ipcMain: any) {
-  ipcMain.handle("git:getVaultHistory", async (_, vaultPath: string) => {
+  typedIpcHandle("git:status", async (_, vaultPath: string) => {
+    try {
+      if (!vaultPath) throw new Error("Vault path not set");
+      let git = gitCache.get(vaultPath);
+      if (!git) {
+        git = customRequire("simple-git")(vaultPath);
+        gitCache.set(vaultPath, git);
+      }
+      const isRepo = await git.checkIsRepo();
+      if (!isRepo) return { success: true, data: null };
+
+      const status = await git.status();
+      return {
+        success: true,
+        data: {
+          staged: status.staged,
+          modified: status.modified,
+          not_added: status.not_added,
+          created: status.created,
+          deleted: status.deleted,
+          files: status.files,
+        },
+      };
+    } catch (e: any) {
+      return { success: false, error: e.message };
+    }
+  });
+
+  typedIpcHandle(
+    "git:commitAll",
+    async (_, vaultPath: string, message: string) => {
+      try {
+        if (!vaultPath) throw new Error("Vault path not set");
+        let git = gitCache.get(vaultPath);
+        if (!git) {
+          git = customRequire("simple-git")(vaultPath);
+          gitCache.set(vaultPath, git);
+        }
+        const isRepo = await git.checkIsRepo();
+        if (!isRepo) return { success: true };
+
+        await git.add(".");
+        await git.commit(message || "Auto sync commit");
+        return { success: true };
+      } catch (e: any) {
+        return { success: false, error: e.message };
+      }
+    },
+  );
+
+  typedIpcHandle("git:squashHistory", async (_, vaultPath: string) => {
+    try {
+      if (!vaultPath) throw new Error("Vault path not set");
+      let git = gitCache.get(vaultPath);
+      if (!git) {
+        git = customRequire("simple-git")(vaultPath);
+        gitCache.set(vaultPath, git);
+      }
+      const isRepo = await git.checkIsRepo();
+      if (!isRepo) throw new Error("Not a git repository");
+
+      const branchSummary = await git.branch();
+      const currentBranch = branchSummary.current || "main";
+
+      await git.checkout(["--orphan", "temp_squash_branch"]);
+      await git.add(".");
+      await git.commit("Initial commit (Squashed)");
+
+      await git.branch(["-D", currentBranch]);
+      await git.branch(["-m", currentBranch]);
+
+      const settingsRows = await getDb(
+        "SELECT key, value FROM settings WHERE key IN ('gitRemoteUrl')",
+      );
+
+      let remoteUrl: string | null = null;
+      let githubToken: string | null = null;
+
+      for (const row of settingsRows) {
+        if (row.key === "gitRemoteUrl") remoteUrl = row.value;
+      }
+
+      const tokenVal = store.get("gitGithubToken") as string | undefined;
+      if (tokenVal) {
+        if (safeStorage.isEncryptionAvailable()) {
+          try {
+            githubToken = safeStorage.decryptString(
+              Buffer.from(tokenVal, "base64"),
+            );
+          } catch (e) {
+            console.error(e);
+            githubToken = tokenVal;
+          }
+        } else {
+          githubToken = tokenVal;
+        }
+      }
+
+      if (remoteUrl) {
+        const remotes = await git.getRemotes();
+        if (!remotes.find((r: any) => r.name === "origin")) {
+          await git.addRemote("origin", remoteUrl);
+        } else {
+          await git.remote(["set-url", "origin", remoteUrl]);
+        }
+
+        let pushUrl = remoteUrl;
+        if (githubToken && remoteUrl.startsWith("https://")) {
+          try {
+            const urlObj = new URL(remoteUrl);
+            pushUrl = urlObj.toString();
+          } catch (e) {
+            console.error(e);
+          }
+        }
+        await git.push(pushUrl, currentBranch, ["--set-upstream", "--force"]);
+      }
+
+      return { success: true };
+    } catch (e: any) {
+      return { success: false, error: e.message };
+    }
+  });
+
+  typedIpcHandle("git:getVaultHistory", async (_, vaultPath: string) => {
     const homeDir = app.getPath("home");
     if (vaultPath && !vaultPath.startsWith(homeDir)) {
       throw new Error(
@@ -34,7 +160,7 @@ export function registerGitHandlers(ipcMain: any) {
     }
   });
 
-  ipcMain.handle(
+  typedIpcHandle(
     "git:getFileHistory",
     async (_, vaultPath: string, noteId: string) => {
       try {
@@ -70,7 +196,7 @@ export function registerGitHandlers(ipcMain: any) {
     },
   );
 
-  ipcMain.handle(
+  typedIpcHandle(
     "git:getFileContentAtCommit",
     async (_, vaultPath: string, noteId: string, hash: string) => {
       try {
@@ -130,7 +256,7 @@ export function registerGitHandlers(ipcMain: any) {
     },
   );
 
-  ipcMain.handle("git:commitLocal", async (_, folderPath: string) => {
+  typedIpcHandle("git:commitLocal", async (_, folderPath: string) => {
     try {
       if (!folderPath) throw new Error("Vault path not configured");
       const git = customRequire("simple-git")(folderPath);
@@ -154,7 +280,7 @@ export function registerGitHandlers(ipcMain: any) {
     }
   });
 
-  ipcMain.handle("git:sync", async (_, folderPath: string) => {
+  typedIpcHandle("git:sync", async (_, folderPath: string) => {
     try {
       if (!folderPath) throw new Error("Vault path not configured");
       const git = customRequire("simple-git")(folderPath);
@@ -177,7 +303,7 @@ export function registerGitHandlers(ipcMain: any) {
 
       // Push to remote if configured
       const settingsRows = await getDb(
-        "SELECT key, value FROM settings WHERE key IN ('gitRemoteUrl', 'gitGithubToken', 'githubActions')",
+        "SELECT key, value FROM settings WHERE key IN ('gitRemoteUrl', 'githubActions')",
       );
 
       let remoteUrl: string | null = null;
@@ -187,16 +313,21 @@ export function registerGitHandlers(ipcMain: any) {
       for (const row of settingsRows) {
         if (row.key === "gitRemoteUrl") remoteUrl = row.value;
         if (row.key === "githubActions") ghActions = row.value;
-        if (row.key === "gitGithubToken") {
-          let val = row.value;
-          if (val && safeStorage.isEncryptionAvailable()) {
-            try {
-              val = safeStorage.decryptString(Buffer.from(val, "base64"));
-            } catch (e) {
-              console.error(e);
-            }
+      }
+
+      const tokenVal = store.get("gitGithubToken") as string | undefined;
+      if (tokenVal) {
+        if (safeStorage.isEncryptionAvailable()) {
+          try {
+            githubToken = safeStorage.decryptString(
+              Buffer.from(tokenVal, "base64"),
+            );
+          } catch (e) {
+            console.error(e);
+            githubToken = tokenVal;
           }
-          githubToken = val;
+        } else {
+          githubToken = tokenVal;
         }
       }
 

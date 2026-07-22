@@ -48,7 +48,10 @@ export function startWatcher(vaultPath: string, mainWindow: BrowserWindow) {
     .on("add", notifyChange)
     .on("change", notifyChange)
     .on("unlink", notifyChange)
-    .on("unlinkDir", notifyChange);
+    .on("unlinkDir", notifyChange)
+    .on("error", (error) => {
+      log.error(`Watcher error: ${error}`);
+    });
 
   log.info(`Started file watcher on ${vaultPath}`);
 }

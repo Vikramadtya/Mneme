@@ -21,7 +21,7 @@ export function useReviewState(
   useEffect(() => {
     if (vaultPath) {
       ipc
-        .getActivityLogs(vaultPath)
+        .invoke("db:getActivityLogs", vaultPath)
         .then((res) => {
           setActivityLogs(res?.data || []);
         })
@@ -71,13 +71,14 @@ export function useReviewState(
       };
 
       if (vaultPath) {
-        await ipc.saveNote(vaultPath, updatedNote);
-        await ipc.logActivity(
+        await ipc.invoke("db:saveNote", vaultPath, updatedNote);
+        await ipc.invoke(
+          "db:logActivity",
           vaultPath,
           new Date().toISOString().split("T")[0],
           "review",
         );
-        const logsRes2 = await ipc.getActivityLogs(vaultPath);
+        const logsRes2 = await ipc.invoke("db:getActivityLogs", vaultPath);
         setActivityLogs(logsRes2?.data || []);
       }
 

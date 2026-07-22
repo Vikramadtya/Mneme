@@ -124,6 +124,19 @@ export const migrations: Migration[] = [
       }
     },
   },
+  {
+    version: 7,
+    name: "add_ai_summary_to_notes",
+    up: (db) => {
+      const noteCols = db.pragma("table_info(notes)") as any[];
+      if (!noteCols.some((r) => r.name === "ai_summary")) {
+        db.exec("ALTER TABLE notes ADD COLUMN ai_summary TEXT");
+      }
+      if (!noteCols.some((r) => r.name === "ai_summary_hash")) {
+        db.exec("ALTER TABLE notes ADD COLUMN ai_summary_hash TEXT");
+      }
+    },
+  },
 ];
 
 export function runMigrations(db: Database.Database) {

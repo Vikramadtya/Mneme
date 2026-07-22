@@ -11,22 +11,24 @@ import {
   LayoutGrid,
   ChevronDown,
   FileText,
+  PlusCircle,
 } from "lucide-react";
-import { lazy, Suspense, useMemo } from "react";
+import { lazy, Suspense, useMemo, useState, useEffect } from "react";
 import { MarkdownRenderer } from "./MarkdownRenderer";
-
 import { CmdKPalette } from "./CmdKPalette";
 import { NoteEditor } from "./NoteEditor";
 import { TopBar } from "./TopBar";
+import { ipc } from "../ipc";
+import { useUI } from "../application/context";
 import { RightSidebar } from "./RightSidebar";
 import { LeftSidebar } from "./LeftSidebar";
 import { VaultHistoryModal } from "./VaultHistoryModal";
 import { WelcomeScreen } from "./dashboard/WelcomeScreen";
-import { NewBookModal } from "./NewBookModal";
-import { BooksLibrary } from "./BooksLibrary";
-import { NewCourseModal } from "./NewCourseModal";
+import { ProjectLibrary } from "./ProjectLibrary";
+import { NewProjectModal } from "./NewProjectModal";
 import { NewChapterModal } from "./NewChapterModal";
-import { CoursesLibrary } from "./CoursesLibrary";
+import { MarkdownHelpModal } from "./MarkdownHelpModal";
+import { SyncCommitModal } from "./SyncCommitModal";
 import { ErrorBoundary } from "./ErrorBoundary";
 
 import { AppTab } from "../domain/enums/AppTab";
@@ -45,6 +47,11 @@ const PdfViewerModal = lazy(() =>
 const SettingsModal = lazy(() =>
   import("./SettingsModal").then((module) => ({
     default: module.SettingsModal,
+  })),
+);
+const TrashModal = lazy(() =>
+  import("./TrashModal").then((module) => ({
+    default: module.TrashModal,
   })),
 );
 const HistoryModal = lazy(() =>
@@ -121,6 +128,9 @@ export function AppContent() {
     setSettingsOpen,
   } = useAppController();
 
+  const setExpandedProjects = useUI((s: any) => s.setExpandedProjects);
+  const setAddingChapterTo = useUI((s: any) => s.setAddingChapterTo);
+
   const heatmapData = useMemo(() => {
     const data = [];
     const today = new Date();
@@ -146,6 +156,15 @@ export function AppContent() {
     }
     return data;
   }, [activityLogs]);
+
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
+
+  useEffect(() => {
+    const removeListener = ipc.on("app:open-markdown-help", () => {
+      setIsHelpOpen(true);
+    });
+    return () => removeListener();
+  }, []);
 
   if (isAppReady && !vaultPath) {
     return <WelcomeScreen onSelectVault={handleSelectVault} />;
@@ -295,6 +314,45 @@ export function AppContent() {
                         Table of Contents
                       </h2>
                       <div className="space-y-6">
+                        {(!rootProject?.chapters ||
+                          rootProject.chapters.length === 0) && (
+                          <div className="flex flex-col items-center justify-center py-12 px-4 text-center bg-gray-50/50 dark:bg-gray-800/20 rounded-xl border border-dashed border-gray-200 dark:border-gray-700">
+                            <CircleDashed
+                              size={32}
+                              className="text-gray-400 mb-3"
+                            />
+                            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                              No{" "}
+                              {rootProject?.type === "course"
+                                ? "modules"
+                                : "chapters"}{" "}
+                              yet
+                            </h3>
+                            <p className="text-xs text-gray-500 mb-4 max-w-[250px]">
+                              Get started by adding a{" "}
+                              {rootProject?.type === "course"
+                                ? "module"
+                                : "chapter"}{" "}
+                              to organize your notes.
+                            </p>
+                            <button
+                              onClick={() => {
+                                // We can trigger the add chapter flow from LeftSidebar
+                                setExpandedProjects((prev: any) => ({
+                                  ...prev,
+                                  [rootProject.id]: true,
+                                }));
+                                setAddingChapterTo(rootProject.id);
+                              }}
+                              className="bg-[#007aff] hover:bg-[#0066cc] text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center"
+                            >
+                              <PlusCircle size={14} className="mr-2" /> Add{" "}
+                              {rootProject?.type === "course"
+                                ? "Module"
+                                : "Chapter"}
+                            </button>
+                          </div>
+                        )}
                         {rootProject?.chapters?.map((chapter: any) => {
                           let chapterNotes = allNotesMap[chapter.id] || [];
                           // Sort pinned notes to the top
@@ -326,7 +384,10 @@ export function AppContent() {
                                       size={14}
                                       className="mr-2 opacity-50"
                                     />
-                                    Empty chapter
+                                    Empty{" "}
+                                    {rootProject?.type === "course"
+                                      ? "module"
+                                      : "chapter"}
                                   </li>
                                 ) : (
                                   chapterNotes.map((n: any) => (
@@ -412,9 +473,9 @@ export function AppContent() {
                       </div>
                     </div>
                   ) : activeTab === AppTab.BOOKS ? (
-                    <BooksLibrary />
+                    <ProjectLibrary type="book" />
                   ) : activeTab === AppTab.COURSES ? (
-                    <CoursesLibrary />
+                    <ProjectLibrary type="course" />
                   ) : activeTab === AppTab.ANALYTICS ? (
                     <div className="flex flex-col h-full bg-card p-8 overflow-y-auto">
                       <div className="flex items-center mb-10">
@@ -551,7 +612,6 @@ export function AppContent() {
                                 legend: {
                                   less: "Less",
                                   more: "More",
-                                  colors: [],
                                 },
                                 months: [
                                   "Jan",
@@ -774,14 +834,20 @@ export function AppContent() {
                             </button>
                             <button
                               onClick={() => {
-                                setNewNoteTitle("Book Chapter Summary");
+                                setNewNoteTitle(
+                                  rootProject?.type === "course"
+                                    ? "Course Module Summary"
+                                    : "Book Chapter Summary",
+                                );
                                 setNewNoteContent(
                                   "## Main Thesis\n\n\n## Key Arguments\n- \n\n## Quotes\n> ",
                                 );
                               }}
                               className="text-[11px] font-medium bg-muted text-muted-foreground px-2 py-1 rounded hover:bg-accent hover:text-accent-foreground transition-colors whitespace-nowrap"
                             >
-                              Book Chapter
+                              {rootProject?.type === "course"
+                                ? "Course Module"
+                                : "Book Chapter"}
                             </button>
                             <button
                               onClick={() => {
@@ -942,16 +1008,20 @@ export function AppContent() {
           <Suspense fallback={null}>
             <PdfViewerModal />
             <SettingsModal />
+            <TrashModal />
             <HistoryModal />
             <CheatsheetModal />
           </Suspense>
         </ErrorBoundary>
 
-        <NewBookModal />
-        <NewCourseModal />
+        <NewProjectModal />
         <NewChapterModal />
         <VaultHistoryModal />
         <CmdKPalette />
+        <SyncCommitModal />
+        {isHelpOpen && (
+          <MarkdownHelpModal onClose={() => setIsHelpOpen(false)} />
+        )}
       </div>
     </ErrorBoundary>
   );
