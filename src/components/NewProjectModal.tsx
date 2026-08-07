@@ -1,3 +1,4 @@
+import { ipcClient } from "@/api/ipcClient";
 import React, { useState, useEffect } from "react";
 import {
   X,
@@ -10,7 +11,6 @@ import {
 } from "lucide-react";
 import { useVault, useNotes, useUI } from "../application/context";
 import { nanoid } from "nanoid";
-import { ipc } from "../ipc";
 
 import {
   Dialog,
@@ -82,7 +82,7 @@ export function NewProjectModal() {
 
   const handleSelectPdf = async () => {
     try {
-      const res = await ipc.invoke("app:selectPdf");
+      const res = await ipcClient.app.selectPdf();
       if (res.success && res.data) {
         setPdfPath(res.data);
         setPdfFileName(res.data.split("/").pop() || null);
@@ -99,7 +99,7 @@ export function NewProjectModal() {
       let finalPdfPath = editingProject?.pdf_path || null;
       if (pdfPath && pdfPath !== editingProject?.pdf_path && vaultPath) {
         // Copy the selected PDF into the vault if it's new
-        const copyRes = await ipc.invoke("fs:copyPdfAsset", vaultPath, pdfPath);
+        const copyRes = await ipcClient.fs.copyPdfAsset(vaultPath, pdfPath);
         if (copyRes.success && copyRes.data) {
           finalPdfPath = copyRes.data;
         }
@@ -118,7 +118,7 @@ export function NewProjectModal() {
       };
 
       if (vaultPath) {
-        await ipc.invoke("db:saveProject", vaultPath, newProject);
+        await ipcClient.db.saveProject(vaultPath, newProject);
       }
 
       if (editingProject) {

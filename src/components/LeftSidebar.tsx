@@ -1,3 +1,4 @@
+import { ipcClient } from "@/api/ipcClient";
 import React, { useState, useRef, useEffect } from "react";
 import {
   Settings,
@@ -25,7 +26,6 @@ import { MoveModal } from "./MoveModal";
 import { Edit2, CornerRightUp, Trash2 } from "lucide-react";
 import { Tooltip } from "./Tooltip";
 import { DeleteConfirmModal } from "./DeleteConfirmModal";
-import { ipc } from "../ipc";
 
 // DnD Kit imports
 import {
@@ -181,7 +181,7 @@ export function LeftSidebar() {
     if (!vaultPath) return;
     setIsExporting(true);
     try {
-      const res = await ipc.invoke("db:exportVaultZip", vaultPath);
+      const res = await ipcClient.db.exportVaultZip(vaultPath);
       if (res.success && res.data) {
         showToast("Export successful to: " + res.data.filePath);
       } else if (res.error !== "Export canceled") {

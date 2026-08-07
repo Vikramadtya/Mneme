@@ -1,6 +1,6 @@
+import { ipcClient } from "@/api/ipcClient";
 import React, { useState } from "react";
 import { X, Settings } from "lucide-react";
-import { ipc } from "../ipc";
 
 import { useVault, useUI } from "../application/context";
 import {
@@ -191,7 +191,7 @@ export function SettingsModal() {
     if (!vaultPath) return;
     setIsExporting(true);
     try {
-      const res = await ipc.invoke("db:exportVaultZip", vaultPath);
+      const res = await ipcClient.db.exportVaultZip(vaultPath);
       if (res.success) {
         showToast("Export successful to: " + res.data.filePath);
       } else if (res.error !== "Export canceled") {
@@ -252,7 +252,7 @@ export function SettingsModal() {
 
     setIsSquashing(true);
     try {
-      const res = await ipc.invoke("git:squashHistory", vaultPath);
+      const res = await ipcClient.git.squashHistory(vaultPath);
       if (res.success) {
         showToast("Git history squashed successfully!", "success");
       } else {

@@ -137,6 +137,16 @@ export const migrations: Migration[] = [
       }
     },
   },
+  {
+    version: 8,
+    name: "add_favourite_to_notes",
+    up: (db) => {
+      const noteCols = db.pragma("table_info(notes)") as any[];
+      if (!noteCols.some((r) => r.name === "favourite")) {
+        db.exec("ALTER TABLE notes ADD COLUMN favourite INTEGER DEFAULT 0");
+      }
+    },
+  },
 ];
 
 export function runMigrations(db: Database.Database) {

@@ -1,5 +1,5 @@
+import { ipcClient } from "@/api/ipcClient";
 import { useState, useCallback, useMemo, useRef } from "react";
-import { ipc } from "../../ipc";
 import type { Note, Project, Commit } from "../../domain/models";
 import { produce } from "immer";
 import { nanoid } from "nanoid";
@@ -100,7 +100,7 @@ export function useNotesState(
           );
         };
 
-        const dbRes = await ipc.invoke("db:getInitialState", vPath);
+        const dbRes = await ipcClient.db.getInitialState(vPath);
         if (dbRes.success && dbRes.data) {
           updateState(dbRes.data);
         }
@@ -108,7 +108,7 @@ export function useNotesState(
         ipc
           .invoke("db:syncFromVault", vPath)
           .then(async () => {
-            const syncedRes = await ipc.invoke("db:getInitialState", vPath);
+            const syncedRes = await ipcClient.db.getInitialState(vPath);
             if (syncedRes.success && syncedRes.data) {
               updateState(syncedRes.data);
             }
@@ -127,7 +127,7 @@ export function useNotesState(
       if (!vaultPath) return;
       try {
         const pId = nanoid();
-        await ipc.invoke("db:saveProject", vaultPath, {
+        await ipcClient.db.saveProject(vaultPath, {
           id: pId,
           name: "New " + type,
           type,
@@ -146,7 +146,7 @@ export function useNotesState(
     async (projectId: string) => {
       if (!vaultPath) return;
       try {
-        const res = await ipc.invoke("db:archiveProject", vaultPath, projectId);
+        const res = await ipcClient.db.archiveProject(vaultPath, projectId);
         if (res.success) {
           await loadDataFromVault(vaultPath);
           showToast("Archived successfully", "success");
@@ -164,11 +164,7 @@ export function useNotesState(
     async (projectId: string) => {
       if (!vaultPath) return;
       try {
-        const res = await ipc.invoke(
-          "db:unarchiveProject",
-          vaultPath,
-          projectId,
-        );
+        const res = await ipcClient.db.unarchiveProject(vaultPath, projectId);
         if (res.success) {
           await loadDataFromVault(vaultPath);
           showToast("Unarchived successfully", "success");
@@ -187,7 +183,7 @@ export function useNotesState(
       if (!vaultPath) return;
       try {
         const chapterId = nanoid();
-        await ipc.invoke("db:saveProject", vaultPath, {
+        await ipcClient.db.saveProject(vaultPath, {
           id: chapterId,
           name: customName || "New Chapter",
           type: "chapter",
@@ -207,7 +203,7 @@ export function useNotesState(
     async (projectId: string) => {
       if (!vaultPath) return;
       try {
-        const res = await ipc.invoke("db:deleteProject", vaultPath, projectId);
+        const res = await ipcClient.db.deleteProject(vaultPath, projectId);
         if (res.success) {
           await loadDataFromVault(vaultPath);
           showToast("Project deleted successfully", "success");
@@ -225,7 +221,7 @@ export function useNotesState(
     async (chapterId: string) => {
       if (!vaultPath) return;
       try {
-        const res = await ipc.invoke("db:deleteChapter", vaultPath, chapterId);
+        const res = await ipcClient.db.deleteChapter(vaultPath, chapterId);
         if (res.success) {
           await loadDataFromVault(vaultPath);
           showToast("Chapter deleted successfully", "success");
@@ -283,7 +279,7 @@ export function useNotesState(
         setFocusedNoteId(newNote.id);
         ipc
           .invoke("db:saveNote", vaultPath, newNote)
-          .then(() => ipc.invoke("db:logActivity", vaultPath, dStr, "create"))
+          .then(() => ipcClient.db.logActivity(vaultPath, dStr, "create"))
           .catch((e) =>
             showToast("Failed to save note: " + e.message, "error"),
           );
@@ -322,7 +318,7 @@ export function useNotesState(
 
       const undoTimeout = setTimeout(async () => {
         if (vaultPath) {
-          await ipc.invoke("db:deleteNote", vaultPath, noteId);
+          await ipcClient.db.deleteNote(vaultPath, noteId);
         }
         delete pendingDeletions.current[noteId];
       }, 4000);
@@ -366,7 +362,7 @@ export function useNotesState(
       );
 
       if (vaultPath) {
-        await ipc.invoke("db:saveNote", vaultPath, updated);
+        await ipcClient.db.saveNote(vaultPath, updated);
       }
     },
     [allNotesFlat, setAllNotesMap, vaultPath],

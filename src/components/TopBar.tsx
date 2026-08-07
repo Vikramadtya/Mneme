@@ -1,3 +1,4 @@
+import { ipcClient } from "@/api/ipcClient";
 import React from "react";
 import {
   Maximize,
@@ -7,7 +8,6 @@ import {
   Moon,
   Minimize2,
 } from "lucide-react";
-import { ipc } from "../ipc";
 import { useVault, useNotes, useUI } from "../application/context";
 import { Tooltip } from "./Tooltip";
 
@@ -57,7 +57,7 @@ export function TopBar() {
   const handleOpenVaultHistory = async () => {
     setIsVaultHistoryOpen(true);
     if (vaultPath) {
-      const res = await ipc.invoke("git:getVaultHistory", vaultPath);
+      const res = await ipcClient.git.getVaultHistory(vaultPath);
       if (res.success) {
         setVaultHistory(res.data || []);
       }

@@ -1,6 +1,6 @@
+import { ipcClient } from "@/api/ipcClient";
 import React, { useState, useEffect } from "react";
 import { Trash2, RefreshCw, X, AlertTriangle } from "lucide-react";
-import { ipc } from "../ipc";
 import { useVault, useUI, useNotes } from "../application/context";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 
@@ -26,7 +26,7 @@ export function TrashModal() {
     if (!vaultPath) return;
     setIsLoading(true);
     try {
-      const res = await ipc.invoke("db:getTrash", vaultPath);
+      const res = await ipcClient.db.getTrash(vaultPath);
       if (res.success) {
         setTrashFiles(res.data as unknown as any[]);
       } else {
@@ -43,7 +43,7 @@ export function TrashModal() {
     if (!vaultPath) return;
     setIsRestoring(fileName);
     try {
-      const res = await ipc.invoke("db:restoreNote", vaultPath, fileName);
+      const res = await ipcClient.db.restoreNote(vaultPath, fileName);
       if (res.success) {
         showToast("Note restored successfully!", "success");
         await loadTrash(); // Refresh list
@@ -69,7 +69,7 @@ export function TrashModal() {
 
     setIsEmptying(true);
     try {
-      const res = await ipc.invoke("db:emptyTrash", vaultPath);
+      const res = await ipcClient.db.emptyTrash(vaultPath);
       if (res.success) {
         showToast("Trash emptied successfully.", "success");
         setTrashFiles([]);

@@ -1,5 +1,5 @@
+import { ipcClient } from "@/api/ipcClient";
 import { useState, useCallback, useEffect } from "react";
-import { ipc } from "../../ipc";
 import type { VaultSettings } from "../../domain/models";
 import type { VaultContextType } from "../context/types";
 
@@ -26,16 +26,15 @@ export function useVaultState(
       setSyncing(true);
       try {
         if (commitMessage) {
-          const commitRes = await ipc.invoke(
-            "git:commitAll",
+          const commitRes = await ipcClient.git.commitAll(
             vaultPath,
             commitMessage,
           );
           if (!commitRes.success) throw new Error(commitRes.error);
         }
-        const resDb = await ipc.invoke("db:syncFromVault", vaultPath);
+        const resDb = await ipcClient.db.syncFromVault(vaultPath);
         if (!resDb.success) throw new Error(resDb.error);
-        const resGit = await ipc.invoke("git:sync", vaultPath);
+        const resGit = await ipcClient.git.sync(vaultPath);
         if (!resGit.success) throw new Error(resGit.error);
         showToast("Vault synced successfully", "success");
       } catch (e: any) {
@@ -52,7 +51,7 @@ export function useVaultState(
     if (!vaultPath || syncing) return;
     setSyncing(true);
     try {
-      const statusRes = await ipc.invoke("git:status", vaultPath);
+      const statusRes = await ipcClient.git.status(vaultPath);
       if (
         statusRes.success &&
         statusRes.data &&
@@ -73,7 +72,7 @@ export function useVaultState(
 
   const handleSelectVault = useCallback(async () => {
     try {
-      const vPath = await ipc.invoke("app:selectVault");
+      const vPath = await ipcClient.app.selectVault();
       if (vPath && vPath.success && vPath.data) {
         setVaultPath(vPath.data);
       }
@@ -84,7 +83,7 @@ export function useVaultState(
 
   const handleToggleLive = useCallback(async () => {
     if (!vaultPath) return;
-    const res = await ipc.invoke("app:toggleLive", vaultPath);
+    const res = await ipcClient.app.toggleLive(vaultPath);
     if (res.success) {
       setIsLive((res.data as any)?.active || false);
       if ((res.data as any)?.active) {
@@ -120,15 +119,15 @@ export function useVaultState(
             );
             setMkdocsConfig(updatedConfig);
           }
-          await ipc.invoke("fs:saveMkdocsConfig", vaultPath, updatedConfig);
+          await ipcClient.fs.saveMkdocsConfig(vaultPath, updatedConfig);
         }
 
         // Save all vault settings
-        await ipc.invoke("db:saveSettings", mergedSettings);
+        await ipcClient.db.saveSettings(mergedSettings);
 
         // Generate GitHub Action if enabled
         if (mergedSettings.githubActionsEnabled) {
-          await ipc.invoke("app:generateGithubAction", vaultPath);
+          await ipcClient.app.generateGithubAction(vaultPath);
         }
 
         setVaultSettings(mergedSettings);

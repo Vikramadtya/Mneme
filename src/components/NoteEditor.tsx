@@ -1,8 +1,8 @@
+import { ipcClient } from "@/api/ipcClient";
 import React, { useRef, useState, useEffect } from "react";
 import { MarkdownRenderer } from "./MarkdownRenderer";
 import { MemoriserEditor } from "./editor/MemoriserEditor";
 import type { ReactCodeMirrorRef } from "@uiw/react-codemirror";
-import { ipc } from "../ipc";
 import {
   Circle,
   CheckCircle2,
@@ -87,7 +87,7 @@ export function NoteEditor({ note }: { note: any }) {
     }
     setActiveHistoryNote({ ...note, content: viewContent });
     setIsHistoryOpen(true);
-    const res = await ipc.invoke("git:getFileHistory", vaultPath, note.id);
+    const res = await ipcClient.git.getFileHistory(vaultPath, note.id);
     if (res.success) {
       setNoteHistory(res.data || []);
     }
@@ -149,7 +149,7 @@ export function NoteEditor({ note }: { note: any }) {
         };
         delete updatedNote.content; // Prevent overwriting the file with empty string!
         if (vaultPath) {
-          await ipc.invoke("db:saveNote", vaultPath, updatedNote);
+          await ipcClient.db.saveNote(vaultPath, updatedNote);
           note.ai_summary = summary;
           note.ai_summary_hash = currentHash;
         }
@@ -204,7 +204,7 @@ export function NoteEditor({ note }: { note: any }) {
             title: editNoteTitle,
           };
           if (vaultPath) {
-            await ipc.invoke("db:saveNote", vaultPath, updatedNote);
+            await ipcClient.db.saveNote(vaultPath, updatedNote);
             note.ai_summary = summary;
             note.ai_summary_hash = currentHash;
           }
@@ -267,7 +267,7 @@ export function NoteEditor({ note }: { note: any }) {
     if (vaultPath && note.id) {
       setIsLoadingContent(true);
       setViewContent(note.content || "");
-      ipc.invoke("db:getNoteContent", vaultPath, note.id).then((res: any) => {
+      ipcClient.db.getNoteContent(vaultPath, note.id).then((res: any) => {
         if (res.success && typeof res.data === "string") {
           setViewContent(res.data);
         }
@@ -357,8 +357,7 @@ export function NoteEditor({ note }: { note: any }) {
           try {
             const buffer = await file.arrayBuffer();
             const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
-            const res = await ipc.invoke(
-              "fs:saveAsset",
+            const res = await ipcClient.fs.saveAsset(
               vaultPath,
               `${Math.random().toString(36).substring(7)}_${sanitizedName}`,
               buffer,
@@ -390,8 +389,7 @@ export function NoteEditor({ note }: { note: any }) {
       try {
         const buffer = await file.arrayBuffer();
         const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
-        const res = await ipc.invoke(
-          "fs:saveAsset",
+        const res = await ipcClient.fs.saveAsset(
           vaultPath,
           `${Math.random().toString(36).substring(7)}_${sanitizedName}`,
           buffer,

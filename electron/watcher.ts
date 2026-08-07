@@ -4,10 +4,42 @@ import log from "electron-log/main";
 import path from "path";
 
 let watcher: chokidar.FSWatcher | null = null;
-let isAppWriting = false;
+let writeLockCount = 0;
+let lockTimeout: NodeJS.Timeout | null = null;
+
+export function acquireWriteLock() {
+  writeLockCount++;
+  if (lockTimeout) clearTimeout(lockTimeout);
+
+  // Auto-release lock after 5 seconds to prevent deadlocks
+  lockTimeout = setTimeout(() => {
+    if (writeLockCount > 0) {
+      log.warn("Write lock timeout reached. Forcibly releasing lock.");
+      writeLockCount = 0;
+    }
+  }, 5000);
+}
+
+export function releaseWriteLock() {
+  if (writeLockCount > 0) {
+    writeLockCount--;
+  }
+  if (writeLockCount === 0 && lockTimeout) {
+    clearTimeout(lockTimeout);
+    lockTimeout = null;
+  }
+}
 
 export function setAppWriting(value: boolean) {
-  isAppWriting = value;
+  if (value) {
+    acquireWriteLock();
+  } else {
+    releaseWriteLock();
+  }
+}
+
+export function isAppWritingActive() {
+  return writeLockCount > 0;
 }
 
 export function startWatcher(vaultPath: string, mainWindow: BrowserWindow) {
@@ -31,7 +63,7 @@ export function startWatcher(vaultPath: string, mainWindow: BrowserWindow) {
   });
 
   const notifyChange = (changedPath: string) => {
-    if (isAppWriting) {
+    if (isAppWritingActive()) {
       log.info(`App is writing, ignoring watcher event for ${changedPath}`);
       return;
     }

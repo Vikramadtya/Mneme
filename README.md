@@ -24,11 +24,13 @@ Memoriser uses a modern Electron stack, treating the Main process as a robust ba
 graph TD
     subgraph "Renderer Process (React + Vite)"
         UI[UI Components\nReact + Tailwind]
-        State[State Management\nZustand + React Query]
-        Workers[Web Workers\nAI Inference, Markdown]
+        State[State Management\nZustand]
+        Hooks[Custom Hooks\nUI Logic]
+        API[API Client\nipcClient.ts]
         
-        UI <--> State
-        State <--> Workers
+        UI <--> Hooks
+        Hooks <--> State
+        Hooks <--> API
     end
 
     subgraph "IPC Bridge"
@@ -36,40 +38,38 @@ graph TD
     end
 
     subgraph "Main Process (Node.js)"
-        Controllers[IPC Controllers]
-        UseCases[Business Logic\nUse Cases]
+        Handlers[Domain Handlers\nNoteHandlers, ProjectHandlers, etc.]
         
-        subgraph "Infrastructure (Adapters)"
+        subgraph "Infrastructure"
             DB[(SQLite DB\nbetter-sqlite3)]
             FS[File System\nchokidar, sharp]
             Git[Git Adapter\nsimple-git]
         end
         
-        Controllers --> UseCases
-        UseCases --> DB
-        UseCases --> FS
-        UseCases --> Git
+        Handlers --> DB
+        Handlers --> FS
+        Handlers --> Git
     end
 
-    State <--> Bridge
-    Bridge <--> Controllers
+    API <--> Bridge
+    Bridge <--> Handlers
 ```
 
 ### Key Components
 
 1. **Frontend (Renderer):** 
    - **React & TailwindCSS** for a responsive, accessible UI.
-   - **TanStack React Query** manages "Server State" (data from the Main process).
-   - **Zustand** manages local UI state (modals, active tabs).
+   - **Central Typed API Client:** All backend calls are neatly wrapped in `src/api/ipcClient.ts`.
+   - **Zustand** manages global UI and domain state.
    - **Web Workers** run `@huggingface/transformers` to offload heavy AI computation from the main UI thread.
 
 2. **Backend (Main):**
-   - **Hexagonal Architecture:** Business logic is decoupled from infrastructure. 
+   - **Domain Handlers:** A modular architecture where logic is grouped into focused handlers (e.g., `NoteHandlers.ts`, `ProjectHandlers.ts`), keeping the backend intuitive and easy to debug.
    - **Better-SQLite3:** Provides a robust local database for metadata, FTS5 search indexing, and flashcard scheduling.
    - **Chokidar:** Watches the local vault directory for external changes and syncs the database.
 
 3. **IPC Bridge:**
-   - A strictly typed IPC (Inter-Process Communication) layer ensures type safety between the frontend and backend.
+   - A strictly typed Context Bridge ensures type safety and autocompletion between the frontend and backend.
 
 ---
 
@@ -116,8 +116,12 @@ The packaged application will be available in the `release/` directory.
 
 ### Directory Structure
 
-- `src/` - The React Renderer application. Follows Feature-Sliced Design (FSD) principles.
-- `electron/` - The Node.js Main process. Implements a layered architecture.
+- `src/` - The React Renderer application. 
+  - `src/components/` - React UI components.
+  - `src/application/` - Context providers and Zustand state hooks.
+  - `src/api/ipcClient.ts` - Central typed IPC client for backend communication.
+- `electron/` - The Node.js Main process.
+  - `electron/handlers/` - Modular domain logic (NoteHandlers, ProjectHandlers, etc.).
 - `docs/` - Source code for the static landing page.
 
 ### Debugging & Logs
@@ -130,8 +134,8 @@ The packaged application will be available in the `release/` directory.
   Modify `electron/db/migrations.ts` to add a new migration. Define the new TypeScript interfaces in `src/domain/models/index.ts`.
 - **Adding a new IPC Call:**
   1. Define the signature in `src/types/ipc.ts`.
-  2. Implement the backend handler in `electron/ipc/` (or `electron/handlers/`).
-  3. Create a React Query wrapper in `src/shared/api/ipcClient.ts`.
+  2. Implement the backend handler in the appropriate domain file in `electron/handlers/` (e.g., `NoteHandlers.ts`).
+  3. Add the wrapper function in `src/api/ipcClient.ts`.
 - **Testing AI Features:**
   The local AI models (via Transformers.js) are downloaded on first use. Ensure you have an active internet connection the first time you generate a summary.
 

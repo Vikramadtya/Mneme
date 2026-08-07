@@ -1,5 +1,5 @@
+import { ipcClient } from "@/api/ipcClient";
 import { useState, useCallback } from "react";
-import { ipc } from "../../ipc";
 import type { Note } from "../../domain/models";
 import { useUIStore } from "../store/uiStore";
 
@@ -47,11 +47,7 @@ export function useUIState(
     async (note: Note) => {
       if (!vaultPath) return;
       try {
-        const history = await ipc.invoke(
-          "git:getFileHistory",
-          vaultPath,
-          note.id,
-        );
+        const history = await ipcClient.git.getFileHistory(vaultPath, note.id);
         setNoteHistory(history);
         setActiveHistoryNote(note);
         setIsHistoryOpen(true);
@@ -76,8 +72,7 @@ export function useUIState(
     async (noteId: string, hash: string) => {
       if (!vaultPath) return;
       try {
-        const res = await ipc.invoke(
-          "git:getFileContentAtCommit",
+        const res = await ipcClient.git.getFileContentAtCommit(
           vaultPath,
           noteId,
           hash,
@@ -101,7 +96,7 @@ export function useUIState(
       if (!vaultPath || !viewingCommitHash || !historicalContent) return;
       try {
         const updatedNote = { ...note, content: historicalContent };
-        await ipc.invoke("db:saveNote", vaultPath, updatedNote);
+        await ipcClient.db.saveNote(vaultPath, updatedNote);
         setAllNotesMap((prev: Record<string, Note[]>) => {
           const pId =
             Object.keys(prev).find((pid) =>
@@ -213,15 +208,14 @@ export function useUIState(
               setEditNoteContent(res.formattedContent);
             }
             // Log edit activity
-            await ipc.invoke(
-              "db:logActivity",
+            await ipcClient.db.logActivity(
               vaultPath,
               new Date().toISOString().split("T")[0],
               "edit",
             );
 
             const { useReviewStore } = require("../store/reviewStore");
-            const logsRes = await ipc.invoke("db:getActivityLogs", vaultPath);
+            const logsRes = await ipcClient.db.getActivityLogs(vaultPath);
             useReviewStore.getState().setActivityLogs(logsRes?.data || []);
           })
           .catch((e: any) => {
@@ -266,8 +260,7 @@ export function useUIState(
         try {
           const buffer = await file.arrayBuffer();
           const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
-          const res = await ipc.invoke(
-            "fs:saveAsset",
+          const res = await ipcClient.fs.saveAsset(
             vaultPath,
             `${Math.random().toString(36).substring(7)}_${sanitizedName}`,
             buffer,
@@ -311,7 +304,7 @@ export function useUIState(
         setEditNoteContent(note.content);
       } else if (vaultPath && note.id) {
         setEditNoteContent("Loading...");
-        const res = await ipc.invoke("db:getNoteContent", vaultPath, note.id);
+        const res = await ipcClient.db.getNoteContent(vaultPath, note.id);
         if (res.success && res.data) {
           setEditNoteContent(res.data);
 
@@ -340,7 +333,7 @@ export function useUIState(
     if (!note || !historicalContent || !vaultPath) return;
     setConfirmRestoreNote(null);
     const restoredNote = { ...note, content: historicalContent };
-    await ipc.invoke("db:saveNote", vaultPath, restoredNote);
+    await ipcClient.db.saveNote(vaultPath, restoredNote);
 
     setAllNotesMap((prev: any) => {
       const draft = { ...prev };

@@ -32,31 +32,14 @@ export function setupDatabase() {
   db.pragma("cache_size = -64000"); // 64MB cache
 
   runMigrations(db);
-
-  db.exec(`CREATE TABLE IF NOT EXISTS settings (
-    key TEXT PRIMARY KEY,
-    value TEXT NOT NULL
-  )`);
-
-  // Add favourite column to notes if missing (migration)
-  const notesCols = db.pragma("table_info(notes)") as any[];
-  if (!notesCols.some((r) => r.name === "favourite")) {
-    db.exec("ALTER TABLE notes ADD COLUMN favourite INTEGER DEFAULT 0");
-  }
 }
 
-export const runDb = async (
-  query: string,
-  params: any[] = [],
-): Promise<any> => {
+export const runDb = (query: string, params: any[] = []): any => {
   const info = db.prepare(query).run(...params);
   return info;
 };
 
-export const getDb = async (
-  query: string,
-  params: any[] = [],
-): Promise<any[]> => {
+export const getDb = (query: string, params: any[] = []): any[] => {
   const rows = db.prepare(query).all(...params);
   return rows;
 };
@@ -114,14 +97,23 @@ export const resolveNotePath = async (
 };
 
 export function registerIpcHandlers() {
-  const { registerDbHandlers } = require("./handlers/DbHandlers");
+  const { registerNoteHandlers } = require("./handlers/NoteHandlers");
+  const { registerProjectHandlers } = require("./handlers/ProjectHandlers");
+  const { registerTrashHandlers } = require("./handlers/TrashHandlers");
+  const { registerSettingsHandlers } = require("./handlers/SettingsHandlers");
+  const { registerSyncHandlers } = require("./handlers/SyncHandlers");
   const { registerAppHandlers } = require("./handlers/AppHandlers");
   const { registerFsHandlers } = require("./handlers/FsHandlers");
   const { registerGitHandlers } = require("./handlers/GitHandlers");
 
   const { ipcMain } = require("electron");
 
-  registerDbHandlers(ipcMain);
+  registerNoteHandlers(ipcMain);
+  registerProjectHandlers(ipcMain);
+  registerTrashHandlers(ipcMain);
+  registerSettingsHandlers(ipcMain);
+  registerSyncHandlers(ipcMain);
+
   registerAppHandlers(ipcMain);
   registerFsHandlers(ipcMain);
   registerGitHandlers(ipcMain);

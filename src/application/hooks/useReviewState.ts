@@ -1,5 +1,5 @@
+import { ipcClient } from "@/api/ipcClient";
 import { useState, useCallback, useMemo, useEffect } from "react";
-import { ipc } from "../../ipc";
 import type { Note } from "../../domain/models";
 import { produce } from "immer";
 import { getNextInterval, calculateNextSM2 } from "../../utils/sm2";
@@ -71,14 +71,13 @@ export function useReviewState(
       };
 
       if (vaultPath) {
-        await ipc.invoke("db:saveNote", vaultPath, updatedNote);
-        await ipc.invoke(
-          "db:logActivity",
+        await ipcClient.db.saveNote(vaultPath, updatedNote);
+        await ipcClient.db.logActivity(
           vaultPath,
           new Date().toISOString().split("T")[0],
           "review",
         );
-        const logsRes2 = await ipc.invoke("db:getActivityLogs", vaultPath);
+        const logsRes2 = await ipcClient.db.getActivityLogs(vaultPath);
         setActivityLogs(logsRes2?.data || []);
       }
 

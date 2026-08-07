@@ -1,9 +1,9 @@
+import { ipcClient } from "@/api/ipcClient";
 import React from "react";
 import { Search } from "lucide-react";
 import { Virtuoso } from "react-virtuoso";
 import { useNotes, useUI } from "../application/context";
 
-import { ipc } from "../ipc";
 import { useDebounce } from "use-debounce";
 
 export function CmdKPalette() {
@@ -29,7 +29,7 @@ export function CmdKPalette() {
     const search = async () => {
       setIsSearching(true);
       try {
-        const res = await ipc.invoke("db:searchNotes", debouncedSearchQuery);
+        const res = await ipcClient.db.searchNotes(debouncedSearchQuery);
         if (res.success && res.data) {
           setResults(res.data);
         } else {
