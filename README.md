@@ -99,16 +99,19 @@ graph TD
    npm run electron:dev
    ```
 
-### Building for Production
+### 📦 macOS Build Process
 
-To build the macOS application (`.dmg` and `.app`):
+To package the application into a standalone `.app` and a distributable `.dmg` for macOS, follow these steps:
 
-```bash
-make build-prod
-# or using npm
-npm run build:mac
-```
-The packaged application will be available in the `release/` directory.
+1. **Install Prerequisites**: Ensure you have XCode Command Line Tools installed (`xcode-select --install`).
+2. **Build the assets**:
+   ```bash
+   npm run build:mac
+   ```
+   This command runs `tsc -b && vite build` to compile the React application and Electron main process, and then uses `electron-builder` to package the app for macOS.
+3. **Locate the Build**: The final `.dmg` and `.app` files will be placed in the `release/` directory in the root of the project.
+
+*Note: For publishing releases directly to GitHub, you can use `npm run publish:github`. Ensure your `GH_TOKEN` environment variable is set.*
 
 ---
 
@@ -124,9 +127,23 @@ The packaged application will be available in the `release/` directory.
   - `electron/handlers/` - Modular domain logic (NoteHandlers, ProjectHandlers, etc.).
 - `docs/` - Source code for the static landing page.
 
-### Debugging & Logs
-- **Main Process Logs:** Logs are stored at `~/Library/Logs/Memoriser/main.log` (on macOS).
-- **Renderer Logs:** Open the Chrome DevTools (`Cmd+Option+I` or `View > Toggle Developer Tools`) inside the app.
+### 🐛 Debugging & Logs
+
+When troubleshooting Memoriser, you'll need to check both the Frontend (Renderer) and Backend (Main) processes:
+
+#### Frontend (Renderer Process)
+The frontend handles the React UI, state, and sending IPC messages.
+- **Viewing Logs:** Open the Developer Tools inside the app by pressing `Cmd+Option+I` (or `View > Toggle Developer Tools`).
+- **Debugging:** You can place `console.log()` inside your React components and view the output directly in the "Console" tab of the Developer Tools. You can also inspect the DOM and network requests here.
+
+#### Backend (Main Process)
+The backend handles the SQLite database, file system watcher, and Git integration.
+- **Viewing Logs:** 
+  - **In Development:** When running `npm run electron:dev`, all backend `console.log` and `console.error` outputs will appear directly in your terminal.
+  - **In Production:** When running the packaged app, logs are written to the disk using `electron-log`. You can find the log files at:
+    `~/Library/Logs/memoriser/main.log` (on macOS).
+- **Debugging:** You can use standard `console.log` statements in any `electron/handlers/*.ts` file. 
+- **Database Inspection:** The local SQLite database is stored at `~/Library/Application Support/memoriser/memoriser.db`. You can open this file with any SQLite viewer (like `sqlite3` CLI or DB Browser for SQLite) to inspect the raw tables (`projects`, `notes`, `flashcards`, etc.).
 
 ### Common Workflows
 
