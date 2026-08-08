@@ -167,7 +167,7 @@ export function registerGitHandlers(ipcMain: any) {
         if (!vaultPath) throw new Error("Vault path not set");
         const note = await getDb("SELECT * FROM notes WHERE id = ?", [
           noteId,
-        ]).then((r) => r[0]);
+        ])[0];
         if (!note) throw new Error("Note not found in DB");
         const notePath = await resolveNotePath(
           vaultPath,
@@ -203,7 +203,7 @@ export function registerGitHandlers(ipcMain: any) {
         if (!vaultPath) throw new Error("Vault path not set");
         const note = await getDb("SELECT * FROM notes WHERE id = ?", [
           noteId,
-        ]).then((r) => r[0]);
+        ])[0];
         if (!note) throw new Error("Note not found in DB");
         const notePath = await resolveNotePath(
           vaultPath,
@@ -373,9 +373,10 @@ jobs:
           }
 
           const branch = await new Promise<string>((res) => {
-            getDb("SELECT value FROM settings WHERE key = 'gitBranch'").then(
-              (rows) => res(rows.length ? rows[0].value : "main"),
+            const rows = getDb(
+              "SELECT value FROM settings WHERE key = 'gitBranch'",
             );
+            res(rows.length ? rows[0].value : "main");
           });
 
           // 2.3 Securely construct push URL with token if provided

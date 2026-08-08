@@ -131,7 +131,6 @@ export function registerProjectHandlers(ipcMain: any) {
 
       return { success: true, data: { projects: rootProjects, allNotesMap } };
     } catch (error: any) {
-      console.error("[getInitialState error]", error);
       return { success: false, error: error.message };
     }
   });
@@ -144,7 +143,7 @@ export function registerProjectHandlers(ipcMain: any) {
         // Find old project to handle rename
         const oldProj = await getDb("SELECT * FROM projects WHERE id = ?", [
           project.id,
-        ])[0];
+        ]).then((r) => r[0]);
 
         await runDb(
           "INSERT OR REPLACE INTO projects (id, name, type, color, parent_id, author, url, pdf_path, instructor, platform) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -223,7 +222,6 @@ export function registerProjectHandlers(ipcMain: any) {
         }
         return { success: true };
       } catch (error: any) {
-        console.error("[getInitialState error]", error);
         return { success: false, error: error.message };
       }
     },
@@ -239,7 +237,6 @@ export function registerProjectHandlers(ipcMain: any) {
         ]);
         return { success: true };
       } catch (error: any) {
-        console.error("[getInitialState error]", error);
         return { success: false, error: error.message };
       }
     },
@@ -255,7 +252,6 @@ export function registerProjectHandlers(ipcMain: any) {
         ]);
         return { success: true };
       } catch (error: any) {
-        console.error("[getInitialState error]", error);
         return { success: false, error: error.message };
       }
     },
@@ -310,7 +306,6 @@ export function registerProjectHandlers(ipcMain: any) {
 
         return { success: true };
       } catch (error: any) {
-        console.error("[getInitialState error]", error);
         return { success: false, error: error.message };
       }
     },
@@ -359,7 +354,6 @@ export function registerProjectHandlers(ipcMain: any) {
 
         return { success: true };
       } catch (error: any) {
-        console.error("[getInitialState error]", error);
         return { success: false, error: error.message };
       }
     },

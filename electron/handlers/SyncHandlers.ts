@@ -24,6 +24,8 @@ import { startWatcher, setAppWriting } from "../watcher";
 import { BrowserWindow } from "electron";
 import { store } from "./AppHandlers";
 
+let isSyncing = false;
+
 export function registerSyncHandlers(ipcMain: any) {
   typedIpcHandle("db:syncFromVault", async (_, vaultPath: string) => {
     const homeDir = app.getPath("home");

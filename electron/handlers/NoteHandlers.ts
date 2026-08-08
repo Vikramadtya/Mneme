@@ -30,10 +30,11 @@ export function registerNoteHandlers(ipcMain: any) {
     "db:getNoteContent",
     async (_, vaultPath: string, noteId: string) => {
       try {
-        const note = await getDb(
+        const notesResult = getDb(
           "SELECT title, project_id FROM notes WHERE id = ?",
           [noteId],
-        ).then((r) => r[0]);
+        );
+        const note = notesResult[0];
         if (!note) {
           return { success: false, error: "Note not found" };
         }
@@ -81,7 +82,7 @@ export function registerNoteHandlers(ipcMain: any) {
         if (vaultPath) {
           const oldNote = await getDb("SELECT * FROM notes WHERE id = ?", [
             note.id,
-          ]).then((r) => r[0]);
+          ])[0];
           if (oldNote) {
             oldFilePath = await resolveNotePath(
               vaultPath,
@@ -159,7 +160,7 @@ export function registerNoteHandlers(ipcMain: any) {
             try {
               const settingRow = await getDb(
                 "SELECT value FROM settings WHERE key = 'autoFormatOnSave'",
-              ).then((r: any) => r[0]);
+              )[0];
               if (settingRow && settingRow.value === "true") {
                 const prettier = customRequire("prettier");
                 finalContent = await prettier.format(finalContent, {
@@ -329,7 +330,7 @@ export function registerNoteHandlers(ipcMain: any) {
 
         const note = await getDb("SELECT * FROM notes WHERE id = ?", [
           noteId,
-        ]).then((r) => r[0]);
+        ])[0];
         if (!note) throw new Error("Note not found in DB");
         const filePath = await resolveNotePath(
           vaultPath,
@@ -354,7 +355,7 @@ export function registerNoteHandlers(ipcMain: any) {
         if (vaultPath) {
           const note = await getDb("SELECT * FROM notes WHERE id = ?", [
             noteId,
-          ]).then((r) => r[0]);
+          ])[0];
           if (note)
             filePath = await resolveNotePath(
               vaultPath,
