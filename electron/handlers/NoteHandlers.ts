@@ -163,8 +163,12 @@ export function registerNoteHandlers(ipcMain: any) {
               )[0];
               if (settingRow && settingRow.value === "true") {
                 const prettier = customRequire("prettier");
+                const markdownPlugin = customRequire(
+                  "prettier/plugins/markdown",
+                );
                 finalContent = await prettier.format(finalContent, {
                   parser: "markdown",
+                  plugins: [markdownPlugin],
                 });
               }
             } catch (e) {

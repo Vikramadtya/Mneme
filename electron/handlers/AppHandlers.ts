@@ -136,7 +136,6 @@ export function registerAppHandlers(ipcMain: any) {
             ["-m", "mkdocs", "serve", "--dev-addr", `127.0.0.1:${livePort}`],
             {
               cwd: vaultPath,
-              shell: true,
               env: {
                 ...process.env,
                 PATH:
