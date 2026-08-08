@@ -6,12 +6,33 @@ import path from "node:path";
 import { getDb } from "../ipcHandlers";
 import { atomicWrite } from "../utils/atomicWrite";
 import Store from "electron-store";
+import AdmZip from "adm-zip";
 import type { ChildProcess } from "node:child_process";
 
 export const store = new Store();
 let mkdocsProcess: ChildProcess | null = null;
 
 export function registerAppHandlers(ipcMain: any) {
+  typedIpcHandle("db:exportVaultZip", async (_, vaultPath: string) => {
+    const result = await dialog.showSaveDialog({
+      title: "Export Vault",
+      defaultPath: "vault-export.zip",
+      filters: [{ name: "ZIP Archives", extensions: ["zip"] }],
+    });
+
+    if (result.canceled || !result.filePath) {
+      return { success: false, error: "Export canceled" };
+    }
+
+    try {
+      const zip = new AdmZip();
+      zip.addLocalFolder(vaultPath);
+      zip.writeZip(result.filePath);
+      return { success: true, data: { filePath: result.filePath } };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  });
   typedIpcHandle("app:getConfig", async () => {
     try {
       return { success: true, data: store.store };
