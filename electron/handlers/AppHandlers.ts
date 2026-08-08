@@ -268,6 +268,20 @@ jobs:
 
   // Git Handlers
   typedIpcHandle("app:reportError", async (_, errorInfo: any) => {
-    console.error("Frontend Error Reported:", errorInfo);
+    console.error("[Frontend Error]", errorInfo);
+  });
+
+  typedIpcHandle("app:log", async (_, level: string, ...args: any[]) => {
+    switch (level) {
+      case "error":
+        console.error("[Frontend ERROR]", ...args);
+        break;
+      case "warn":
+        console.warn("[Frontend WARN]", ...args);
+        break;
+      default:
+        console.log("[Frontend LOG]", ...args);
+        break;
+    }
   });
 }

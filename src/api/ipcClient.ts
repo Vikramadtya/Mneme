@@ -91,6 +91,8 @@ export const ipcClient = {
     ) => invoke("git:getFileContentAtCommit", vaultPath, noteId, commitHash),
   },
   app: {
+    log: (level: string, ...args: any[]) =>
+      (window as any).api.app.log(level, ...args),
     selectVault: () => invoke("app:selectVault"),
     getConfig: () => invoke("app:getConfig"),
     setConfig: (config: any) => invoke("app:setConfig", config),

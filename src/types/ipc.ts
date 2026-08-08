@@ -99,6 +99,7 @@ export interface IpcHandlers {
     vaultPath: string,
     sourcePath: string,
   ) => Promise<IpcResponse<string>>;
+  "app:log": (level: string, ...args: any[]) => Promise<void>;
   "app:reportError": (errorInfo: any) => Promise<void>;
   "app:openExternal": (url: string) => Promise<void>;
 }
