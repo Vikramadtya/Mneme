@@ -158,21 +158,33 @@ export function registerNoteHandlers(ipcMain: any) {
           if (note.content !== undefined) {
             let finalContent = note.content || "";
             try {
-              const settingRow = await getDb(
+              console.log("[db:saveNote] Attempting to auto-format...");
+              const settingRow = getDb(
                 "SELECT value FROM settings WHERE key = 'autoFormatOnSave'",
               )[0];
+              console.log(
+                "[db:saveNote] autoFormatOnSave setting:",
+                settingRow,
+              );
               if (settingRow && settingRow.value === "true") {
                 const prettier = customRequire("prettier");
                 const markdownPlugin = customRequire(
                   "prettier/plugins/markdown",
                 );
+                console.log(
+                  "[db:saveNote] Loaded prettier plugins successfully.",
+                );
                 finalContent = await prettier.format(finalContent, {
                   parser: "markdown",
                   plugins: [markdownPlugin],
                 });
+                console.log("[db:saveNote] Prettier formatting successful.");
               }
             } catch (e) {
-              console.error("Prettier formatting failed", e);
+              console.error(
+                "[db:saveNote] Prettier formatting failed completely:",
+                e,
+              );
             }
             (note as any).finalContentToReturn = finalContent;
             await atomicWrite(newFilePath, finalContent, {

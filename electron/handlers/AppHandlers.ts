@@ -131,6 +131,15 @@ export function registerAppHandlers(ipcMain: any) {
             console.error("Failed to copy overrides:", e);
           }
 
+          // Force kill any orphaned mkdocs serve processes on the same port before starting
+          try {
+            require("child_process").execSync(
+              'pkill -f "mkdocs serve --dev-addr 127.0.0.1:"' + livePort,
+            );
+          } catch (e) {
+            // pkill exits with 1 if no process found, which is fine
+          }
+
           mkdocsProcess = spawn(
             "python3",
             ["-m", "mkdocs", "serve", "--dev-addr", `127.0.0.1:${livePort}`],
@@ -146,22 +155,30 @@ export function registerAppHandlers(ipcMain: any) {
           );
 
           const logPath = path.join(vaultPath, "mkdocs.log");
+
           mkdocsProcess.stdout?.on("data", (data) => {
+            console.log("[MkDocs STDOUT]:", data.toString().trim());
             fs.appendFile(logPath, data.toString()).catch(() => {});
           });
           mkdocsProcess.stderr?.on("data", (data) => {
+            console.error("[MkDocs STDERR]:", data.toString().trim());
             fs.appendFile(logPath, data.toString()).catch(() => {});
           });
 
           mkdocsProcess.on("error", (err) => {
-            console.error("Failed to start mkdocs:", err);
+            console.error("[app:toggleLive] Failed to start mkdocs:", err);
             fs.appendFile(logPath, `ERROR: ${err.message}\n`).catch(() => {});
             mkdocsProcess = null;
           });
 
-          mkdocsProcess.on("exit", (code) => {
-            console.log("MkDocs exited with code", code);
-            fs.appendFile(logPath, `EXIT: ${code}\n`).catch(() => {});
+          mkdocsProcess.on("exit", (code, signal) => {
+            console.log(
+              `[app:toggleLive] MkDocs exited. Code: ${code}, Signal: ${signal}`,
+            );
+            fs.appendFile(
+              logPath,
+              `EXIT: code=${code} signal=${signal}\n`,
+            ).catch(() => {});
             mkdocsProcess = null;
           });
 
