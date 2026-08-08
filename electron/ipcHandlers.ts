@@ -72,15 +72,15 @@ export const resolveNotePath = async (
 
   if (!projectId) return checkPaths(path.join(base, "Uncategorized"));
 
-  const proj = await getDb("SELECT * FROM projects WHERE id = ?", [
-    projectId,
-  ]).then((r) => r[0]);
+  const projs = getDb("SELECT * FROM projects WHERE id = ?", [projectId]);
+  const proj = projs[0];
   if (!proj) return checkPaths(path.join(base, "Uncategorized"));
 
   if (proj.parent_id) {
-    const parentProj = await getDb("SELECT * FROM projects WHERE id = ?", [
+    const parentProjs = getDb("SELECT * FROM projects WHERE id = ?", [
       proj.parent_id,
-    ]).then((r) => r[0]);
+    ]);
+    const parentProj = parentProjs[0];
     const parentTypeDir = parentProj.type === "course" ? "Courses" : "Books";
     return checkPaths(
       path.join(
