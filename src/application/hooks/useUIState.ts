@@ -201,8 +201,8 @@ export function useUIState(
       });
 
       if (fullNoteForIpc && vaultPath) {
-        ipc
-          .invoke("db:saveNote", vaultPath, fullNoteForIpc)
+        ipcClient.db
+          .saveNote(vaultPath, fullNoteForIpc)
           .then(async (res: any) => {
             if (res.success && res.formattedContent !== undefined) {
               setEditNoteContent(res.formattedContent);

@@ -5,10 +5,19 @@ const invoke = <K extends keyof IpcHandlers>(
   channel: K,
   ...args: Parameters<IpcHandlers[K]>
 ): ReturnType<IpcHandlers[K]> => {
-  return window.api.invoke(channel, ...args) as ReturnType<IpcHandlers[K]>;
+  return (window as any).ipcRenderer.invoke(channel, ...args) as ReturnType<
+    IpcHandlers[K]
+  >;
 };
 
 export const ipcClient = {
+  on: (channel: string, listener: (...args: any[]) => void) => {
+    (window as any).ipcRenderer.on(channel, listener);
+    return () => (window as any).ipcRenderer.off(channel, listener);
+  },
+  off: (channel: string, listener: (...args: any[]) => void) => {
+    (window as any).ipcRenderer.off(channel, listener);
+  },
   db: {
     getInitialState: (vaultPath: string) =>
       invoke("db:getInitialState", vaultPath),
@@ -89,5 +98,7 @@ export const ipcClient = {
     toggleLive: (vaultPath: string) => invoke("app:toggleLive", vaultPath),
     generateGithubAction: (vaultPath: string) =>
       invoke("app:generateGithubAction", vaultPath),
+    openExternal: (url: string) => invoke("app:openExternal", url),
+    reportError: (error: any) => invoke("app:reportError", error),
   },
 };

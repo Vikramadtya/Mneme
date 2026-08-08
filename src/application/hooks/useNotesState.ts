@@ -105,8 +105,8 @@ export function useNotesState(
           updateState(dbRes.data);
         }
 
-        ipc
-          .invoke("db:syncFromVault", vPath)
+        ipcClient.db
+          .syncFromVault(vPath)
           .then(async () => {
             const syncedRes = await ipcClient.db.getInitialState(vPath);
             if (syncedRes.success && syncedRes.data) {
@@ -277,8 +277,8 @@ export function useNotesState(
         );
 
         setFocusedNoteId(newNote.id);
-        ipc
-          .invoke("db:saveNote", vaultPath, newNote)
+        ipcClient.db
+          .saveNote(vaultPath, newNote)
           .then(() => ipcClient.db.logActivity(vaultPath, dStr, "create"))
           .catch((e) =>
             showToast("Failed to save note: " + e.message, "error"),

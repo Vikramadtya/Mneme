@@ -110,7 +110,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // 2. External Vault File Change Listener
   useEffect(() => {
     if (vaultState.vaultPath && !vaultState.syncing) {
-      const unsub = ipc.on("vault-file-changed", async () => {
+      const unsub = ipcClient.on("vault-file-changed", async () => {
         try {
           await ipcClient.db.syncFromVault(vaultState.vaultPath!);
           const dbRes = await ipcClient.db.getInitialState(

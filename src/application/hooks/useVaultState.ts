@@ -98,7 +98,7 @@ export function useVaultState(
 
   const handleOpenLive = useCallback(async () => {
     if (liveUrl) {
-      await ipc.invoke("app:openExternal", liveUrl);
+      await ipcClient.app.openExternal(liveUrl);
     }
   }, [liveUrl]);
 
@@ -142,8 +142,8 @@ export function useVaultState(
   );
 
   useEffect(() => {
-    ipc
-      .invoke("db:getSettings")
+    ipcClient.db
+      .getSettings()
       .then((res) => {
         if (res.success && res.data) {
           setVaultSettings(res.data as unknown as VaultSettings);

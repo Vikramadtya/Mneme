@@ -20,8 +20,8 @@ export function useReviewState(
 
   useEffect(() => {
     if (vaultPath) {
-      ipc
-        .invoke("db:getActivityLogs", vaultPath)
+      ipcClient.db
+        .getActivityLogs(vaultPath)
         .then((res) => {
           setActivityLogs(res?.data || []);
         })

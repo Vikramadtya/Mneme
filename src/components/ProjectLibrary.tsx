@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { useNotes, useVault, useUI } from "../application/context";
 import type { Project } from "../types";
-import { ipc } from "../ipc";
+import { ipcClient } from "@/api/ipcClient";
 import { DeleteConfirmModal } from "./DeleteConfirmModal";
 
 type ProjectLibraryProps = {
@@ -64,7 +64,7 @@ export function ProjectLibrary({ type }: ProjectLibraryProps) {
   const handleOpenUrl = async (e: React.MouseEvent, project: Project) => {
     e.stopPropagation();
     if (project.url) {
-      await ipc.invoke("app:openExternal", project.url);
+      await ipcClient.app.openExternal(project.url);
     }
   };
 

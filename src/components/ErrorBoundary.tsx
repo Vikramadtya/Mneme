@@ -1,5 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
-import { ipc } from "../ipc";
+import { ipcClient } from "@/api/ipcClient";
 
 interface Props {
   children?: ReactNode;
@@ -21,7 +21,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error("Uncaught error:", error, errorInfo);
-    ipc.invoke("app:reportError", {
+    ipcClient.app.reportError({
       message: error.message,
       stack: error.stack,
       componentStack: errorInfo.componentStack,

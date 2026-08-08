@@ -18,7 +18,7 @@ import { MarkdownRenderer } from "./MarkdownRenderer";
 import { CmdKPalette } from "./CmdKPalette";
 import { NoteEditor } from "./NoteEditor";
 import { TopBar } from "./TopBar";
-import { ipc } from "../ipc";
+import { ipcClient } from "@/api/ipcClient";
 import { useUI } from "../application/context";
 import { RightSidebar } from "./RightSidebar";
 import { LeftSidebar } from "./LeftSidebar";
@@ -160,7 +160,7 @@ export function AppContent() {
   const [isHelpOpen, setIsHelpOpen] = useState(false);
 
   useEffect(() => {
-    const removeListener = ipc.on("app:open-markdown-help", () => {
+    const removeListener = ipcClient.on("app:open-markdown-help", () => {
       setIsHelpOpen(true);
     });
     return () => removeListener();
