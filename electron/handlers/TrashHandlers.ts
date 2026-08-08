@@ -77,36 +77,6 @@ export function registerTrashHandlers(ipcMain: any) {
     },
   );
 
-  typedIpcHandle(
-    "db:restoreNote",
-    async (_, vaultPath: string, fileName: string) => {
-      try {
-        const trashDir = path.join(vaultPath, ".trash");
-        const trashPath = path.join(trashDir, fileName);
-        if (!(await exists(trashPath)))
-          throw new Error("File not found in trash");
-
-        const docsDir = path.join(vaultPath, "docs");
-        const originalName = fileName.split("_").slice(1).join("_") || fileName;
-        const restorePath = path.join(docsDir, originalName);
-
-        // If a file with the same name exists, append a timestamp to avoid overwrite
-        let finalRestorePath = restorePath;
-        if (await exists(restorePath)) {
-          finalRestorePath = path.join(
-            docsDir,
-            `${Date.now()}_${originalName}`,
-          );
-        }
-
-        await fs.rename(trashPath, finalRestorePath);
-        return { success: true };
-      } catch (e: any) {
-        return { success: false, error: e.message };
-      }
-    },
-  );
-
   typedIpcHandle("db:emptyTrash", async (_, vaultPath: string) => {
     try {
       const trashDir = path.join(vaultPath, ".trash");
