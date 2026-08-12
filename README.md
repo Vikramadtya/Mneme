@@ -1,163 +1,140 @@
-# 🧠 Memoriser (Mneme)
+<div align="center">
+  <img src="buildResources/icon.icns" alt="Memoriser Logo" width="120" />
+  <h1>🧠 Memoriser (Mneme)</h1>
+  <p><strong>A blazingly fast, privacy-first, local-first knowledge management application.</strong></p>
+  
+  [![React](https://img.shields.io/badge/React-19.2-blue?logo=react&logoColor=white)](https://react.dev)
+  [![Electron](https://img.shields.io/badge/Electron-30.0-4B8BBE?logo=electron&logoColor=white)](https://electronjs.org)
+  [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-3178C6?logo=typescript&logoColor=white)](https://typescriptlang.org)
+  [![SQLite](https://img.shields.io/badge/SQLite-FTS5-003B57?logo=sqlite&logoColor=white)](https://sqlite.org)
+  
+  <br />
+</div>
 
-Memoriser is a modern, high-performance note-taking and knowledge management application built with Electron and React. Designed for students, researchers, and developers, it bridges the gap between local markdown files, Git-backed version control, and advanced AI capabilities (both local and cloud).
+## 📖 Welcome to Memoriser
+Memoriser bridges the gap between local markdown editing, Git-backed version control, and advanced AI capabilities. It is designed for researchers, students, and engineers who demand high performance and full ownership of their data.
 
-![Memoriser Preview](https://via.placeholder.com/1200x600.png?text=Memoriser+App)
-
-## ✨ Features
-
-- **Rich Markdown Editor:** Built with CodeMirror and React, supporting KaTeX, frontmatter, and seamless image handling.
-- **Local AI Inference:** Powered by `@huggingface/transformers` running in a dedicated Web Worker. Generate summaries and tags without data leaving your machine.
-- **Git & GitHub Integration:** Automatically tracks your vault history. Push changes to GitHub and automatically deploy a static site using MkDocs.
-- **Flashcard System:** Built-in spaced repetition system directly integrated into your notes.
-- **Full-Text Search (FTS5):** Lightning-fast search across your entire vault using SQLite's FTS5 engine.
-- **File System Watcher:** Real-time synchronization with your local vault directory. Edit files in any editor, and Memoriser instantly updates.
-- **Privacy-First Vault:** All your notes are stored locally as plain Markdown files. You own your data.
+This document serves as the **Engineer Onboarding Guide**. It contains everything you need to understand the architecture, run the app, debug issues, and contribute to the codebase.
 
 ---
 
-## 🏗️ Architecture
+## ✨ Core Features
+- **Local-First Markdown:** All notes are stored as plain `.md` files on your disk. No cloud lock-in.
+- **Lightning Fast Editor:** Custom-built React CodeMirror integration with live KaTeX rendering, Prettier auto-formatting, and intelligent frontmatter parsing.
+- **Git & MkDocs Integration:** Automatically backs up your vault to GitHub. Click "Go Live" to instantly compile and serve a static MkDocs site locally.
+- **Full-Text Search (FTS5):** Instantaneous search across thousands of notes powered by SQLite's FTS5 virtual tables.
+- **Local AI Inference:** Summarization and auto-tagging run entirely on your local machine using `@huggingface/transformers` in a dedicated Web Worker.
+- **Flashcard Spaced Repetition:** Built-in scheduling algorithm embedded directly into your note-taking workflow.
 
-Memoriser uses a modern Electron stack, treating the Main process as a robust backend (Hexagonal Architecture) and the Renderer as a lightweight, reactive frontend.
+---
 
-```mermaid
-graph TD
-    subgraph "Renderer Process (React + Vite)"
-        UI[UI Components\nReact + Tailwind]
-        State[State Management\nZustand]
-        Hooks[Custom Hooks\nUI Logic]
-        API[API Client\nipcClient.ts]
-        
-        UI <--> Hooks
-        Hooks <--> State
-        Hooks <--> API
-    end
+## 🏗️ Architecture Deep Dive
 
-    subgraph "IPC Bridge"
-        Bridge[Context Bridge\nTyped IPC]
-    end
+Memoriser follows a strict separation of concerns, leveraging the standard Electron Main/Renderer architecture, but fortified with strict typing and robust logging.
 
-    subgraph "Main Process (Node.js)"
-        Handlers[Domain Handlers\nNoteHandlers, ProjectHandlers, etc.]
-        
-        subgraph "Infrastructure"
-            DB[(SQLite DB\nbetter-sqlite3)]
-            FS[File System\nchokidar, sharp]
-            Git[Git Adapter\nsimple-git]
-        end
-        
-        Handlers --> DB
-        Handlers --> FS
-        Handlers --> Git
-    end
+### 1. The Frontend (Renderer Process)
+The frontend is a **React 19** Single Page Application built with **Vite** and styled with **TailwindCSS**.
+- **State Management:** We use `zustand` for lightweight global state (e.g., UI toggles, current vault path) and React Context for scoped providers.
+- **Centralized API Client:** The frontend NEVER imports Electron directly. All communication happens through `src/api/ipcClient.ts`, which calls `window.api`.
+- **Feature-Sliced CodeMirror:** The editor is highly modularized using `@uiw/react-codemirror`, extending it with custom plugins for markdown parsing and live rendering.
 
-    API <--> Bridge
-    Bridge <--> Handlers
-```
+### 2. The Backend (Main Process)
+The Node.js backend handles all heavy lifting to keep the React UI at 60fps.
+- **Modular Domain Handlers:** Business logic is separated into specific domains in `electron/handlers/` (e.g., `NoteHandlers.ts`, `ProjectHandlers.ts`, `GitHandlers.ts`). 
+- **Better-SQLite3:** We use synchronous SQLite bindings. Why synchronous? Because IPC introduces latency, and `better-sqlite3` is so fast that running queries synchronously on the main thread is generally faster than asynchronous alternatives.
+- **File System Watcher (`chokidar`):** Memoriser respects external edits. If you modify a Markdown file in VS Code or Obsidian, `chokidar` detects the change, parses the frontmatter, and instantly updates the SQLite database.
 
-### Key Components
+### 3. The Typed IPC Bridge
+This is the central nervous system of Memoriser. We do not use magic strings for IPC channels.
+- **The Contract:** `src/types/ipc.ts` defines the exact signature of every IPC method.
+- **The Implementation:** `electron/typedIpc.ts` exposes `typedIpcHandle`, a generic wrapper that enforces the types from the contract on the backend handlers.
+- **The Security:** `electron/preload.ts` safely exposes these methods to the frontend via the `contextBridge`.
 
-1. **Frontend (Renderer):** 
-   - **React & TailwindCSS** for a responsive, accessible UI.
-   - **Central Typed API Client:** All backend calls are neatly wrapped in `src/api/ipcClient.ts`.
-   - **Zustand** manages global UI and domain state.
-   - **Web Workers** run `@huggingface/transformers` to offload heavy AI computation from the main UI thread.
+---
 
-2. **Backend (Main):**
-   - **Domain Handlers:** A modular architecture where logic is grouped into focused handlers (e.g., `NoteHandlers.ts`, `ProjectHandlers.ts`), keeping the backend intuitive and easy to debug.
-   - **Better-SQLite3:** Provides a robust local database for metadata, FTS5 search indexing, and flashcard scheduling.
-   - **Chokidar:** Watches the local vault directory for external changes and syncs the database.
+## 🐞 Comprehensive Full-Stack Logging
+Debugging Electron apps can be notoriously difficult. We have implemented a unified, full-stack logging architecture to make it painless.
 
-3. **IPC Bridge:**
-   - A strictly typed Context Bridge ensures type safety and autocompletion between the frontend and backend.
+1. **Frontend Console Mirroring:** 
+   If a React component calls `console.log`, `console.warn`, or `console.error`, you don't need to open the Chrome DevTools. We intercept these calls in `src/main.tsx` and pipe them over IPC directly to the backend. They will appear in your terminal as `[Frontend ERROR]`.
+2. **React Error Boundaries:**
+   A global `<ErrorBoundary>` wraps the app. If a component crashes, it renders a fallback UI and automatically forwards the stack trace to the backend logs.
+3. **IPC Request/Response Tracing:**
+   Every single IPC call made between the frontend and backend is automatically intercepted by our wrapper in `typedIpcHandle`. You will see exact timings and payloads in your terminal:
+   ```text
+   [IPC Request] -> db:saveNote [{"id":"note1"...}]
+   [IPC Response] <- db:saveNote (150ms) {"success":true}
+   ```
+4. **Production Logs:**
+   In production, all terminal output is written to disk via `electron-log`. You can find the raw logs at `~/Library/Logs/memoriser/main.log`.
 
 ---
 
 ## 🚀 Getting Started
 
 ### Prerequisites
-- Node.js (v18+)
-- Python 3 (Optional, for MkDocs live preview)
+- Node.js (v18 or higher)
+- Python 3 (Optional, required for the "Go Live" MkDocs feature)
 
 ### Installation
-
-1. **Clone the repository:**
+1. **Clone & Install:**
    ```bash
    git clone https://github.com/Vikramadtya/Mneme.git
    cd Mneme
-   ```
-
-2. **Install dependencies:**
-   ```bash
    npm install
    ```
 
-3. **Start the development server:**
+2. **Start the Development Server:**
    ```bash
-   npm run dev
-   # or concurrently start Vite and Electron
    npm run electron:dev
    ```
-
-### 📦 macOS Build Process
-
-To package the application into a standalone `.app` and a distributable `.dmg` for macOS, follow these steps:
-
-1. **Install Prerequisites**: Ensure you have XCode Command Line Tools installed (`xcode-select --install`).
-2. **Build the assets**:
-   ```bash
-   npm run build:mac
-   ```
-   This command runs `tsc -b && vite build` to compile the React application and Electron main process, and then uses `electron-builder` to package the app for macOS.
-3. **Locate the Build**: The final `.dmg` and `.app` files will be placed in the `release/` directory in the root of the project.
-
-*Note: For publishing releases directly to GitHub, you can use `npm run publish:github`. Ensure your `GH_TOKEN` environment variable is set.*
+   This command uses `concurrently` to spin up the Vite dev server for the React frontend, waits for it to bind to port 5173, and then launches the Electron main process. Hot Module Replacement (HMR) is fully supported for both the frontend and backend!
 
 ---
 
-## 🛠️ Developer Guide (Onboarding)
+## 🗺️ Codebase Map
 
-### Directory Structure
+When you are assigned a ticket, here is where you should look:
 
-- `src/` - The React Renderer application. 
-  - `src/components/` - React UI components.
-  - `src/application/` - Context providers and Zustand state hooks.
-  - `src/api/ipcClient.ts` - Central typed IPC client for backend communication.
-- `electron/` - The Node.js Main process.
-  - `electron/handlers/` - Modular domain logic (NoteHandlers, ProjectHandlers, etc.).
-- `docs/` - Source code for the static landing page.
-
-### 🐛 Debugging & Logs
-
-When troubleshooting Memoriser, you'll need to check both the Frontend (Renderer) and Backend (Main) processes:
-
-#### Frontend (Renderer Process)
-The frontend handles the React UI, state, and sending IPC messages.
-- **Viewing Logs:** Open the Developer Tools inside the app by pressing `Cmd+Option+I` (or `View > Toggle Developer Tools`).
-- **Debugging:** You can place `console.log()` inside your React components and view the output directly in the "Console" tab of the Developer Tools. You can also inspect the DOM and network requests here.
-
-#### Backend (Main Process)
-The backend handles the SQLite database, file system watcher, and Git integration.
-- **Viewing Logs:** 
-  - **In Development:** When running `npm run electron:dev`, all backend `console.log` and `console.error` outputs will appear directly in your terminal.
-  - **In Production:** When running the packaged app, logs are written to the disk using `electron-log`. You can find the log files at:
-    `~/Library/Logs/memoriser/main.log` (on macOS).
-- **Debugging:** You can use standard `console.log` statements in any `electron/handlers/*.ts` file. 
-- **Database Inspection:** The local SQLite database is stored at `~/Library/Application Support/memoriser/memoriser.db`. You can open this file with any SQLite viewer (like `sqlite3` CLI or DB Browser for SQLite) to inspect the raw tables (`projects`, `notes`, `flashcards`, etc.).
-
-### Common Workflows
-
-- **Adding a new DB Table:** 
-  Modify `electron/db/migrations.ts` to add a new migration. Define the new TypeScript interfaces in `src/domain/models/index.ts`.
-- **Adding a new IPC Call:**
-  1. Define the signature in `src/types/ipc.ts`.
-  2. Implement the backend handler in the appropriate domain file in `electron/handlers/` (e.g., `NoteHandlers.ts`).
-  3. Add the wrapper function in `src/api/ipcClient.ts`.
-- **Testing AI Features:**
-  The local AI models (via Transformers.js) are downloaded on first use. Ensure you have an active internet connection the first time you generate a summary.
+| Directory/File | Purpose |
+|----------------|---------|
+| `src/components/` | React UI components (Sidebar, EditorPane, Modals). |
+| `src/application/` | Zustand stores and Custom React Hooks. |
+| `src/types/ipc.ts` | **START HERE for new features.** Defines the API boundary. |
+| `src/api/ipcClient.ts` | The frontend implementation of the IPC boundary. |
+| `electron/main.ts` | Application entry point, window management, and global log setup. |
+| `electron/handlers/` | Backend business logic (SQLite, Git, File System). |
+| `electron/db/migrations.ts` | Database schema definitions. **Modify this to add new tables.** |
+| `electron/watcher.ts` | The Chokidar file system watcher integration. |
 
 ---
 
-## 📄 License
+## 🛠️ Advanced Development Notes
 
-MIT License. See `LICENSE` for details.
+### 1. The "Go Live" Zombie Process
+The "Go Live" feature spawns a Python `mkdocs serve` process on port 8000. Historically, hot-reloading the Electron app would orphan this process, causing subsequent launches to fail with "Address already in use". 
+**Solution:** `AppHandlers.ts` contains a targeted `pkill -f` command that executes before launching a new MkDocs instance, ensuring total cleanup of zombie processes. Note: MkDocs can take ~30 seconds to compile a large vault initially.
+
+### 2. Prettier Auto-Format
+Markdown auto-formatting runs entirely in the backend during the `db:saveNote` execution. Due to Vite/Electron bundling quirks with dynamic imports in Prettier v3, we use a `customRequire` function to manually resolve `prettier/plugins/markdown` from the `node_modules` folder.
+
+### 3. macOS Gatekeeper (The "Damaged App" Error)
+When building the app locally using `npm run build:mac`, macOS assigns a quarantine flag to the `.app` or `.dmg` if it is transferred via a browser without Apple Codesigning/Notarization. 
+If testing a `.dmg` and you see a "Memoriser is damaged" error, run:
+```bash
+xattr -cr /Applications/Memoriser.app
+```
+To fix this for production distribution, you must configure the `notarize` block in `package.json` with an active Apple Developer ID certificate.
+
+---
+
+## 🤝 Contributing
+We adhere to strict formatting and linting rules. 
+Before committing, always run:
+```bash
+npm run format
+npm run lint
+```
+*(Husky pre-commit hooks are installed to enforce this automatically).*
+
+Welcome to the team! 🎉
