@@ -878,6 +878,12 @@ export function LeftSidebar() {
               </button>
             </div>
           )}
+          {!sidebarCollapsed && (
+            <div
+              onMouseDown={startResizing}
+              className="absolute right-0 top-0 w-1 h-full cursor-col-resize hover:bg-blue-500/50 active:bg-blue-500 z-50"
+            />
+          )}
         </aside>
       )}
 
