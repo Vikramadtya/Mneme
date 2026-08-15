@@ -169,6 +169,8 @@ export interface UIContextType {
   editNoteTags: any;
   cmdkOpen: boolean;
   setSidebarCollapsed: React.Dispatch<React.SetStateAction<boolean>>;
+  sidebarWidth: number;
+  setSidebarWidth: (width: number) => void;
   newProjectName: string;
   startEditing: (note: Note) => void;
   setNewNoteContent: React.Dispatch<React.SetStateAction<string>>;

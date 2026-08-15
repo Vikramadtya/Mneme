@@ -41,6 +41,8 @@ interface UIState {
   setSearchQuery: (query: string) => void;
   setZenMode: (mode: boolean) => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
+  sidebarWidth: number;
+  setSidebarWidth: (width: number) => void;
   setRightSidebarCollapsed: (collapsed: boolean) => void;
   setProjectViewMode: (mode: "grid" | "list" | "toc" | "linear") => void;
   setAddingProjectType: (type: "book" | "course" | "chapter" | null) => void;
@@ -62,6 +64,8 @@ export const useUIStore = create<UIState>((set) => ({
   searchQuery: "",
   zenMode: false,
   sidebarCollapsed: false,
+  sidebarWidth: 280,
+  setSidebarWidth: (width) => set({ sidebarWidth: width }),
   rightSidebarCollapsed: false,
   projectViewMode: "linear",
   addingProjectType: null,

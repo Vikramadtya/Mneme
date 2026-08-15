@@ -108,6 +108,40 @@ export function LeftSidebar() {
   };
   const sidebarCollapsed = useUI((s) => s.sidebarCollapsed);
   const setSidebarCollapsed = useUI((s) => s.setSidebarCollapsed);
+  const sidebarWidth = useUI((s) => s.sidebarWidth);
+  const setSidebarWidth = useUI((s) => s.setSidebarWidth);
+  const [isResizing, setIsResizing] = React.useState(false);
+
+  const startResizing = React.useCallback(
+    (mouseDownEvent: React.MouseEvent) => {
+      mouseDownEvent.preventDefault();
+      setIsResizing(true);
+    },
+    [],
+  );
+
+  React.useEffect(() => {
+    const handleMouseMove = (mouseMoveEvent: MouseEvent) => {
+      if (isResizing) {
+        // Minimum width 200, maximum width 600
+        const newWidth = Math.max(200, Math.min(600, mouseMoveEvent.clientX));
+        setSidebarWidth(newWidth);
+      }
+    };
+    const handleMouseUp = () => {
+      setIsResizing(false);
+    };
+
+    if (isResizing) {
+      document.addEventListener("mousemove", handleMouseMove);
+      document.addEventListener("mouseup", handleMouseUp);
+    }
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [isResizing, setSidebarWidth]);
+
   const setActiveProjectId = useNotes((s) => s.setActiveProjectId);
   const projects = useNotes((s) => s.projects);
   const activeProjectId = useNotes((s) => s.activeProjectId);
@@ -475,7 +509,8 @@ export function LeftSidebar() {
     <>
       {!zenMode && (
         <aside
-          className={`${sidebarCollapsed ? "w-[60px]" : "w-[280px]"} overflow-x-hidden bg-zinc-100/90 dark:bg-card backdrop-blur-xl border-r border-border flex flex-col pt-12 flex-shrink-0 transition-all duration-300 relative group/sidebar`}
+          className={`${sidebarCollapsed ? "w-[60px]" : ""} overflow-x-hidden bg-zinc-100/90 dark:bg-card backdrop-blur-xl border-r border-border flex flex-col pt-12 flex-shrink-0 ${isResizing ? "select-none" : "transition-all duration-300"} relative group/sidebar`}
+          style={{ width: sidebarCollapsed ? undefined : sidebarWidth }}
         >
           <button
             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
@@ -765,6 +800,26 @@ export function LeftSidebar() {
               >
                 <CornerRightUp size={14} className="mr-2" /> Move
               </button>
+              {(contextMenu.type === "book" ||
+                contextMenu.type === "course") && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (!expandedProjects[contextMenu.id]) {
+                      setExpandedProjects((prev) => ({
+                        ...prev,
+                        [contextMenu.id]: true,
+                      }));
+                    }
+                    setAddingChapterTo(contextMenu.id);
+                    setContextMenu(null);
+                  }}
+                  className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-zinc-700 text-gray-700 dark:text-gray-300 flex items-center"
+                >
+                  <PlusCircle size={14} className="mr-2" />
+                  Add {contextMenu.type === "book" ? "Chapter" : "Module"}
+                </button>
+              )}
               {(contextMenu.type === "book" ||
                 contextMenu.type === "course") && (
                 <button
