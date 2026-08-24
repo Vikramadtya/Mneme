@@ -13,9 +13,10 @@ import {
   FileText,
   PlusCircle,
 } from "lucide-react";
-import { lazy, Suspense, useMemo, useState, useEffect } from "react";
+import React, { lazy, Suspense, useMemo, useState, useEffect } from "react";
 import { MarkdownRenderer } from "./MarkdownRenderer";
-import { CmdKPalette } from "./CmdKPalette";
+import { SearchPalette } from "./SearchPalette";
+import { CommandPalette } from "../features/command-palette/CommandPalette";
 import { NoteEditor } from "./NoteEditor";
 import { TopBar } from "./TopBar";
 import { ipcClient } from "@/api/ipcClient";
@@ -25,13 +26,14 @@ import { LeftSidebar } from "./LeftSidebar";
 import { VaultHistoryModal } from "./VaultHistoryModal";
 import { WelcomeScreen } from "./dashboard/WelcomeScreen";
 import { ProjectLibrary } from "./ProjectLibrary";
+import { ProjectTocView } from "./dashboard/ProjectTocView";
 import { NewProjectModal } from "./NewProjectModal";
 import { NewChapterModal } from "./NewChapterModal";
 import { MarkdownHelpModal } from "./MarkdownHelpModal";
 import { SyncCommitModal } from "./SyncCommitModal";
 import { ErrorBoundary } from "./ErrorBoundary";
-
 import { AppTab } from "../domain/enums/AppTab";
+import { getLocalDateString } from "../utils/dateUtils";
 import { Tooltip } from "./Tooltip";
 import { Command } from "cmdk";
 import { BarChart } from "lucide-react";
@@ -130,6 +132,7 @@ export function AppContent() {
 
   const setExpandedProjects = useUI((s: any) => s.setExpandedProjects);
   const setAddingChapterTo = useUI((s: any) => s.setAddingChapterTo);
+  const activeTabId = useUI((s: any) => s.activeTabId);
 
   const heatmapData = useMemo(() => {
     const data = [];
@@ -146,7 +149,7 @@ export function AppContent() {
       d <= endOfYear;
       d.setDate(d.getDate() + 1)
     ) {
-      const dateStr = d.toISOString().split("T")[0];
+      const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
       const count = logMap.get(dateStr) || 0;
       data.push({
         date: dateStr,
@@ -202,71 +205,6 @@ export function AppContent() {
           </div>
         )}
 
-        <Command.Dialog
-          open={cmdkOpen}
-          onOpenChange={setCmdkOpen}
-          className="fixed inset-0 z-50 flex items-start justify-center pt-[15vh] bg-black/40 backdrop-blur-sm animate-in fade-in duration-200"
-        >
-          <div className="bg-card rounded-xl shadow-2xl border border-border w-full max-w-2xl overflow-hidden flex flex-col">
-            <Command.Input
-              placeholder="Search notes or type a command..."
-              className="w-full px-4 py-4 bg-transparent border-b border-gray-100 dark:border-zinc-800 outline-none text-lg text-gray-900 dark:text-white placeholder:text-gray-400"
-            />
-            <Command.List className="max-h-[300px] overflow-y-auto p-2">
-              <Command.Empty className="py-6 text-center text-gray-500 text-sm">
-                No results found.
-              </Command.Empty>
-
-              <Command.Group
-                heading="Notes"
-                className="text-xs font-semibold text-muted-foreground px-2 py-1"
-              >
-                {allNotesFlat.map((note: any) => (
-                  <Command.Item
-                    key={note.id}
-                    onSelect={() => {
-                      const el = document.getElementById("note-" + note.id);
-                      if (el) el.scrollIntoView({ behavior: "smooth" });
-                      setCmdkOpen(false);
-                    }}
-                    className="flex items-center px-2 py-2 rounded-lg cursor-pointer hover:bg-accent hover:text-accent-foreground aria-selected:bg-accent aria-selected:text-accent-foreground"
-                  >
-                    <NotebookPen size={14} className="mr-2 text-gray-400" />
-                    <span className="text-sm font-medium">{note.title}</span>
-                  </Command.Item>
-                ))}
-              </Command.Group>
-
-              <Command.Group
-                heading="Commands"
-                className="text-xs font-semibold text-muted-foreground px-2 py-1 mt-2"
-              >
-                <Command.Item
-                  onSelect={() => {
-                    setSettingsOpen(true);
-                    setCmdkOpen(false);
-                  }}
-                  className="flex items-center px-2 py-2 rounded-lg cursor-pointer hover:bg-accent hover:text-accent-foreground aria-selected:bg-accent aria-selected:text-accent-foreground"
-                >
-                  <Settings size={14} className="mr-2 text-gray-400" />
-                  <span className="text-sm font-medium">Open Settings</span>
-                </Command.Item>
-                <Command.Item
-                  onSelect={() => {
-                    setReviewMode(true);
-                    setCmdkOpen(false);
-                  }}
-                  className="flex items-center px-2 py-2 rounded-lg cursor-pointer hover:bg-accent hover:text-accent-foreground aria-selected:bg-accent aria-selected:text-accent-foreground"
-                >
-                  <History size={14} className="mr-2 text-gray-400" />
-                  <span className="text-sm font-medium">
-                    Start Review Session
-                  </span>
-                </Command.Item>
-              </Command.Group>
-            </Command.List>
-          </div>
-        </Command.Dialog>
         <LeftSidebar />
 
         {/* Main Content Area */}
@@ -305,173 +243,7 @@ export function AppContent() {
                   {activeTab === AppTab.PROJECT &&
                   projectViewMode === "toc" &&
                   isRootProject ? (
-                    <div className="bg-card rounded-xl shadow-sm border border-border p-8">
-                      <h2 className="text-xl font-bold mb-6 text-foreground flex items-center">
-                        <NotebookPen
-                          className="mr-2 text-[#007aff]"
-                          size={20}
-                        />{" "}
-                        Table of Contents
-                      </h2>
-                      <div className="space-y-6">
-                        {(!rootProject?.chapters ||
-                          rootProject.chapters.length === 0) && (
-                          <div className="flex flex-col items-center justify-center py-12 px-4 text-center bg-gray-50/50 dark:bg-gray-800/20 rounded-xl border border-dashed border-gray-200 dark:border-gray-700">
-                            <CircleDashed
-                              size={32}
-                              className="text-gray-400 mb-3"
-                            />
-                            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
-                              No{" "}
-                              {rootProject?.type === "course"
-                                ? "modules"
-                                : "chapters"}{" "}
-                              yet
-                            </h3>
-                            <p className="text-xs text-gray-500 mb-4 max-w-[250px]">
-                              Get started by adding a{" "}
-                              {rootProject?.type === "course"
-                                ? "module"
-                                : "chapter"}{" "}
-                              to organize your notes.
-                            </p>
-                            <button
-                              onClick={() => {
-                                // We can trigger the add chapter flow from LeftSidebar
-                                setExpandedProjects((prev: any) => ({
-                                  ...prev,
-                                  [rootProject.id]: true,
-                                }));
-                                setAddingChapterTo(rootProject.id);
-                              }}
-                              className="bg-[#007aff] hover:bg-[#0066cc] text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center"
-                            >
-                              <PlusCircle size={14} className="mr-2" /> Add{" "}
-                              {rootProject?.type === "course"
-                                ? "Module"
-                                : "Chapter"}
-                            </button>
-                          </div>
-                        )}
-                        {rootProject?.chapters?.map((chapter: any) => {
-                          let chapterNotes = allNotesMap[chapter.id] || [];
-                          // Sort pinned notes to the top
-                          chapterNotes = [...chapterNotes].sort(
-                            (a: any, b: any) => {
-                              if (a.favourite && !b.favourite) return -1;
-                              if (!a.favourite && b.favourite) return 1;
-                              return 0;
-                            },
-                          );
-                          return (
-                            <div key={chapter.id}>
-                              <h3
-                                onClick={() =>
-                                  selectProject(rootProject.id, chapter.id)
-                                }
-                                className="text-lg font-bold text-foreground hover:text-[#007aff] dark:hover:text-[#007aff] transition-colors cursor-pointer flex items-center mb-3"
-                              >
-                                <CircleDashed
-                                  size={16}
-                                  className="mr-2 text-[#007aff]"
-                                />{" "}
-                                {chapter.name}
-                              </h3>
-                              <ul className="pl-6 space-y-2.5 border-l-2 border-gray-100 dark:border-gray-800 ml-2">
-                                {chapterNotes.length === 0 ? (
-                                  <li className="text-sm text-muted-foreground/60 italic flex items-center">
-                                    <FileText
-                                      size={14}
-                                      className="mr-2 opacity-50"
-                                    />
-                                    Empty{" "}
-                                    {rootProject?.type === "course"
-                                      ? "module"
-                                      : "chapter"}
-                                  </li>
-                                ) : (
-                                  chapterNotes.map((n: any) => (
-                                    <li key={n.id}>
-                                      <button
-                                        onClick={() => {
-                                          setProjectViewMode("linear");
-                                          setTimeout(
-                                            () =>
-                                              document
-                                                .getElementById("note-" + n.id)
-                                                ?.scrollIntoView({
-                                                  behavior: "smooth",
-                                                  block: "center",
-                                                }),
-                                            100,
-                                          );
-                                        }}
-                                        className="text-[14px] text-muted-foreground hover:text-[#007aff] transition-colors text-left flex items-start group"
-                                      >
-                                        <span className="flex-1 flex items-center">
-                                          {n.favourite && (
-                                            <Star
-                                              size={12}
-                                              className="mr-1.5 fill-[#eab308] text-[#eab308]"
-                                            />
-                                          )}
-                                          {n.title}
-                                        </span>
-                                      </button>
-                                    </li>
-                                  ))
-                                )}
-                              </ul>
-                            </div>
-                          );
-                        })}
-                        {(allNotesMap[activeProject?.id] || []).length > 0 && (
-                          <div className="pt-4 mt-8 border-t border-gray-100 dark:border-gray-800">
-                            <h3 className="text-[13px] font-bold text-gray-400 uppercase tracking-wider mb-4">
-                              Uncategorized Notes
-                            </h3>
-                            <ul className="pl-6 space-y-2.5 border-l-2 border-gray-100 dark:border-gray-800 ml-2">
-                              {[...(allNotesMap[activeProject?.id] || [])]
-                                .sort((a: any, b: any) => {
-                                  if (a.favourite && !b.favourite) return -1;
-                                  if (!a.favourite && b.favourite) return 1;
-                                  return 0;
-                                })
-                                .map((n: any) => (
-                                  <li key={n.id}>
-                                    <button
-                                      onClick={() => {
-                                        setProjectViewMode("linear");
-                                        setTimeout(
-                                          () =>
-                                            document
-                                              .getElementById("note-" + n.id)
-                                              ?.scrollIntoView({
-                                                behavior: "smooth",
-                                                block: "center",
-                                              }),
-                                          100,
-                                        );
-                                      }}
-                                      className="text-[14px] text-muted-foreground hover:text-[#007aff] transition-colors text-left flex items-start group"
-                                    >
-                                      <span className="flex-1 flex items-center">
-                                        {n.favourite && (
-                                          <Star
-                                            size={12}
-                                            className="mr-1.5 fill-[#eab308] text-[#eab308]"
-                                          />
-                                        )}
-                                        {n.title}
-                                      </span>
-                                    </button>
-                                  </li>
-                                ))}
-                            </ul>
-                          </div>
-                        )}
-                      </div>
-                    </div>
+                    <ProjectTocView rootProject={rootProject} />
                   ) : activeTab === AppTab.BOOKS ? (
                     <ProjectLibrary type="book" />
                   ) : activeTab === AppTab.COURSES ? (
@@ -556,7 +328,7 @@ export function AppContent() {
                             <div className="text-emerald-600 dark:text-emerald-400 font-semibold mb-1">
                               Total Reviews Completed
                             </div>
-                            <p className="text-sm text-emerald-500/80 dark:text-emerald-400/80">
+                            <p className="text-sm text-emerald-500/80 dark:emerald-400/80">
                               Total reps across all your flashcards.
                             </p>
                           </div>
@@ -800,114 +572,140 @@ export function AppContent() {
                   ) : (
                     <>
                       {/* Add Note Area */}
-                      {activeTab === AppTab.PROJECT && activeProject && (
-                        <div className="bg-card rounded-xl shadow-sm border border-border p-4 flex flex-col gap-3">
-                          <input
-                            type="text"
-                            value={newNoteTitle}
-                            onChange={(e) => setNewNoteTitle(e.target.value)}
-                            placeholder="Note Title..."
-                            className="w-full bg-transparent border-none outline-none font-bold text-lg text-foreground placeholder-gray-400"
-                          />
-                          <textarea
-                            value={newNoteContent}
-                            onChange={(e) => setNewNoteContent(e.target.value)}
-                            onDrop={(e) => handleDrop(e, false)}
-                            onDragOver={handleDragOver}
-                            placeholder="Write a new note in markdown... (Drop images here)"
-                            className="w-full bg-transparent border-none outline-none resize-none min-h-[60px] text-[15px] text-muted-foreground placeholder-gray-400/70"
-                          />
-                          <div className="flex gap-2 items-center mt-1 mb-3 overflow-x-auto">
-                            <span className="text-[10px] font-bold text-[#71717a] dark:text-gray-500 uppercase tracking-wider">
-                              Templates
-                            </span>
-                            <button
-                              onClick={() => {
-                                setNewNoteTitle("Lecture Notes");
-                                setNewNoteContent(
-                                  "## Key Concepts\n- \n\n## Detailed Notes\n\n\n## Summary\n",
-                                );
+                      {activeTab === AppTab.PROJECT &&
+                        activeProject &&
+                        !activeTabId && (
+                          <div className="bg-card rounded-xl shadow-sm border border-border p-4 flex flex-col gap-3">
+                            <input
+                              type="text"
+                              value={newNoteTitle}
+                              onChange={(e) => setNewNoteTitle(e.target.value)}
+                              placeholder="Note Title... (Required)"
+                              className="w-full bg-transparent border-none outline-none font-bold text-lg text-foreground placeholder-gray-400"
+                            />
+                            <textarea
+                              ref={(el) => {
+                                if (el) {
+                                  el.style.height = "auto";
+                                  el.style.height =
+                                    (el.scrollHeight || 60) + "px";
+                                }
                               }}
-                              className="text-[11px] font-medium bg-muted text-muted-foreground px-2 py-1 rounded hover:bg-accent hover:text-accent-foreground transition-colors whitespace-nowrap"
-                            >
-                              Lecture Notes
-                            </button>
-                            <button
-                              onClick={() => {
-                                setNewNoteTitle(
-                                  rootProject?.type === "course"
-                                    ? "Course Module Summary"
-                                    : "Book Chapter Summary",
-                                );
-                                setNewNoteContent(
-                                  "## Main Thesis\n\n\n## Key Arguments\n- \n\n## Quotes\n> ",
-                                );
-                              }}
-                              className="text-[11px] font-medium bg-muted text-muted-foreground px-2 py-1 rounded hover:bg-accent hover:text-accent-foreground transition-colors whitespace-nowrap"
-                            >
-                              {rootProject?.type === "course"
-                                ? "Course Module"
-                                : "Book Chapter"}
-                            </button>
-                            <button
-                              onClick={() => {
-                                setNewNoteTitle("Problem Set Solution");
-                                setNewNoteContent(
-                                  "## Problem Statement\n\n\n## Approach\n\n\n## Solution / Code\n```python\n\n```",
-                                );
-                              }}
-                              className="text-[11px] font-medium bg-muted text-muted-foreground px-2 py-1 rounded hover:bg-accent hover:text-accent-foreground transition-colors whitespace-nowrap"
-                            >
-                              Problem Set
-                            </button>
-                          </div>
-                          <div className="flex justify-between items-center mt-1 border-t border-[#f4f4f5] dark:border-zinc-800 pt-3">
-                            <div className="flex gap-2 w-2/3">
-                              <input
-                                type="date"
-                                value={newNoteDate}
-                                onChange={(e) => setNewNoteDate(e.target.value)}
-                                className="bg-transparent border-none outline-none text-xs text-gray-500 cursor-pointer"
-                              />
-                              <input
-                                type="text"
-                                value={newNoteTags}
-                                onChange={(e) => setNewNoteTags(e.target.value)}
-                                placeholder="Tags (comma separated)..."
-                                className="bg-transparent border-none outline-none text-xs text-gray-500 w-full ml-2"
-                              />
+                              value={newNoteContent}
+                              onChange={(e) =>
+                                setNewNoteContent(e.target.value)
+                              }
+                              onDrop={(e) => handleDrop(e, false)}
+                              onDragOver={handleDragOver}
+                              placeholder="Write a new note in markdown... (Drop images here)"
+                              className="w-full bg-transparent border-none outline-none resize-none min-h-[60px] text-[15px] text-muted-foreground placeholder-gray-400/70"
+                            />
+                            <div className="flex gap-2 items-center mt-1 mb-3 overflow-x-auto">
+                              <span className="text-[10px] font-bold text-[#71717a] dark:text-gray-500 uppercase tracking-wider">
+                                Templates
+                              </span>
+                              <button
+                                onClick={() => {
+                                  setNewNoteTitle("Lecture Notes");
+                                  setNewNoteContent(
+                                    "## Key Concepts\n- \n\n## Detailed Notes\n\n\n## Summary\n",
+                                  );
+                                }}
+                                className="text-[11px] font-medium bg-muted text-muted-foreground px-2 py-1 rounded hover:bg-accent hover:text-accent-foreground transition-colors whitespace-nowrap"
+                              >
+                                Lecture Notes
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setNewNoteTitle(
+                                    rootProject?.type === "course"
+                                      ? "Course Module Summary"
+                                      : "Book Chapter Summary",
+                                  );
+                                  setNewNoteContent(
+                                    "## Main Thesis\n\n\n## Key Arguments\n- \n\n## Quotes\n> ",
+                                  );
+                                }}
+                                className="text-[11px] font-medium bg-muted text-muted-foreground px-2 py-1 rounded hover:bg-accent hover:text-accent-foreground transition-colors whitespace-nowrap"
+                              >
+                                {rootProject?.type === "course"
+                                  ? "Course Module"
+                                  : "Book Chapter"}
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setNewNoteTitle("Problem Set Solution");
+                                  setNewNoteContent(
+                                    "## Problem Statement\n\n\n## Approach\n\n\n## Solution / Code\n```python\n\n```",
+                                  );
+                                }}
+                                className="text-[11px] font-medium bg-muted text-muted-foreground px-2 py-1 rounded hover:bg-accent hover:text-accent-foreground transition-colors whitespace-nowrap"
+                              >
+                                Problem Set
+                              </button>
                             </div>
-                            <button
-                              onClick={() => {
-                                handleAddNote(
-                                  activeProject?.id!,
-                                  newNoteTitle,
-                                  newNoteContent,
-                                  newNoteDate,
-                                  newNoteTags,
-                                );
-                                setNewNoteTitle("");
-                                setNewNoteContent("");
-                                setNewNoteTags("");
-                                setNewNoteDate(
-                                  new Date().toISOString().split("T")[0],
-                                );
-                              }}
-                              disabled={!newNoteContent.trim()}
-                              className="bg-[#007aff] text-white px-4 py-1.5 rounded-md text-sm font-medium hover:bg-blue-600 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
-                            >
-                              <Send size={16} className="mr-2" /> Add Note
-                            </button>
+                            <div className="flex justify-between items-center mt-1 border-t border-[#f4f4f5] dark:border-zinc-800 pt-3">
+                              <div className="flex gap-2 w-2/3">
+                                <input
+                                  type="date"
+                                  value={newNoteDate}
+                                  onChange={(e) =>
+                                    setNewNoteDate(e.target.value)
+                                  }
+                                  className="bg-transparent border-none outline-none text-xs text-gray-500 cursor-pointer"
+                                />
+                                <input
+                                  type="text"
+                                  value={newNoteTags}
+                                  onChange={(e) =>
+                                    setNewNoteTags(e.target.value)
+                                  }
+                                  placeholder="Tags (comma separated)..."
+                                  className="bg-transparent border-none outline-none text-xs text-gray-500 w-full ml-2"
+                                />
+                              </div>
+                              <button
+                                onClick={() => {
+                                  handleAddNote(
+                                    activeProject?.id!,
+                                    newNoteTitle,
+                                    newNoteContent,
+                                    newNoteDate,
+                                    newNoteTags,
+                                  );
+                                  setNewNoteTitle("");
+                                  setNewNoteContent("");
+                                  setNewNoteTags("");
+                                  setNewNoteDate(
+                                    new Date().toISOString().split("T")[0],
+                                  );
+                                }}
+                                disabled={
+                                  !newNoteContent.trim() || !newNoteTitle.trim()
+                                }
+                                className="bg-[#007aff] text-white px-4 py-1.5 rounded-md text-sm font-medium hover:bg-blue-600 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                              >
+                                <Send size={16} className="mr-2" /> Add Note
+                              </button>
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        )}
 
                       {/* Notes List */}
-                      <div className="space-y-6">
+                      <div className={`space-y-6 ${activeTabId ? "mt-4" : ""}`}>
                         {(() => {
-                          const todayDate = new Date()
-                            .toISOString()
-                            .split("T")[0];
+                          if (activeTabId) {
+                            const tabNote = allNotesFlat.find(
+                              (n: any) => n.id === activeTabId,
+                            );
+                            if (tabNote) {
+                              return (
+                                <NoteEditor key={tabNote.id} note={tabNote} />
+                              );
+                            }
+                          }
+
+                          const todayDate = getLocalDateString();
                           let displayNotes: any[] = [];
                           if (activeTab === "today") {
                             displayNotes = allNotesFlat.filter(
@@ -915,7 +713,11 @@ export function AppContent() {
                             );
                           } else if (activeTab === AppTab.AGENDA) {
                             displayNotes = allNotesFlat.filter(
-                              (n: any) => n.date > todayDate,
+                              (n: any) =>
+                                n.date > todayDate ||
+                                (n.flashcard &&
+                                  n.flashcard.nextReviewDate &&
+                                  n.flashcard.nextReviewDate > todayDate),
                             );
                           } else if (activeProject) {
                             if (isRootProject) {
@@ -931,9 +733,12 @@ export function AppContent() {
                             }
                           }
 
-                          // Sort pinned (favourite) notes to the top
+                          // Sort notes by sort_order, then favourites
                           displayNotes = [...displayNotes].sort(
                             (a: any, b: any) => {
+                              const aOrder = a.sort_order || 0;
+                              const bOrder = b.sort_order || 0;
+                              if (aOrder !== bOrder) return aOrder - bOrder;
                               if (a.favourite && !b.favourite) return -1;
                               if (!a.favourite && b.favourite) return 1;
                               return 0;
@@ -1017,7 +822,8 @@ export function AppContent() {
         <NewProjectModal />
         <NewChapterModal />
         <VaultHistoryModal />
-        <CmdKPalette />
+        <SearchPalette />
+        <CommandPalette />
         <SyncCommitModal />
         {isHelpOpen && (
           <MarkdownHelpModal onClose={() => setIsHelpOpen(false)} />

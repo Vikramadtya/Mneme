@@ -9,8 +9,6 @@ import React from "react";
 import { AppTab } from "../../domain/enums/AppTab";
 export interface VaultContextType {
   syncing: boolean;
-  setMkdocsConfig: React.Dispatch<React.SetStateAction<string>>;
-  liveUrl: string | null;
   setVaultPath: React.Dispatch<React.SetStateAction<string | null>>;
   handleSync: () => Promise<void>;
   performActualSync: (commitMessage?: string) => Promise<void>;
@@ -21,18 +19,12 @@ export interface VaultContextType {
   setEditingProject: React.Dispatch<React.SetStateAction<any | null>>;
   gitStatusForSync: any;
   setGitStatusForSync: React.Dispatch<React.SetStateAction<any>>;
-  mkdocsConfig: string;
   vaultPath: string | null;
   isSavingConfig: boolean;
   setVaultSettings: React.Dispatch<React.SetStateAction<VaultSettings | null>>;
-  setLiveUrl: React.Dispatch<React.SetStateAction<string | null>>;
   setIsSavingConfig: React.Dispatch<React.SetStateAction<boolean>>;
-  isLive: boolean;
   vaultSettings: VaultSettings | null;
   setSyncing: React.Dispatch<React.SetStateAction<boolean>>;
-  setIsLive: React.Dispatch<React.SetStateAction<boolean>>;
-  handleToggleLive: () => Promise<void>;
-  handleOpenLive: () => void;
 }
 
 export interface NotesContextType {
@@ -106,7 +98,6 @@ export interface UIContextType {
 
   setActiveTab: (tab: AppTab) => void;
   todayStr: string;
-  handleToggleLive: () => Promise<void>;
   saveEdit: (close?: boolean, overrideContent?: string) => Promise<void>;
   setEditingNoteId: React.Dispatch<React.SetStateAction<string | null>>;
   handleOpenHistory: (note: Note) => Promise<void>;
@@ -157,7 +148,6 @@ export interface UIContextType {
   toggleFavourite: (noteId: string) => Promise<void>;
   setCmdkOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setIsAppReady: React.Dispatch<React.SetStateAction<boolean>>;
-  handleOpenLive: () => void;
   setEditNoteTags: React.Dispatch<React.SetStateAction<string>>;
   isAppReady: boolean;
   setNewNoteTags: React.Dispatch<React.SetStateAction<string>>;
@@ -182,6 +172,15 @@ export interface UIContextType {
   confirmRestore: () => Promise<void>;
   zenMode: boolean;
   confirmRestoreNote: Note | null;
+  openTabs: { id: string; title: string; type: "note" | "project" }[];
+  activeTabId: string | null;
+  addTab: (tab: {
+    id: string;
+    title: string;
+    type: "note" | "project";
+  }) => void;
+  removeTab: (id: string) => void;
+  setActiveTabId: (id: string | null) => void;
 }
 
 export interface ReviewContextType {

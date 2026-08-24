@@ -1,22 +1,24 @@
+import { SettingsRepository } from "../db/repositories/SettingsRepository";
+import { ProjectRepository } from "../db/repositories/ProjectRepository";
+import { NoteRepository } from "../db/repositories/NoteRepository";
 import { safeStorage, app } from "electron";
 import { typedIpcHandle } from "../typedIpc";
-import log from "electron-log/main";
+
 import { atomicWrite } from "../utils/atomicWrite";
 import fs from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { LRUCache } from "lru-cache";
+import { ProjectSchema } from "../validators/models";
 
 const noteContentCache = new LRUCache<string, string>({ max: 100 });
 import {
-  getDb,
-  runDb,
   sanitize,
   exists,
   resolveNotePath,
   customRequire,
   gitCache,
-  db,
+  runDb,
 } from "../ipcHandlers";
 
 const sharp = customRequire("sharp");
@@ -34,9 +36,9 @@ export function registerProjectHandlers(ipcMain: any) {
     }
 
     try {
-      let projects = await getDb("SELECT * FROM projects");
-      const notes = await getDb("SELECT * FROM notes");
-      const flashcards = await getDb("SELECT * FROM flashcards");
+      let projects = await ProjectRepository.getAllProjects();
+      const notes = await NoteRepository.getAllNotes();
+      const flashcards = await NoteRepository.getAllFlashcards();
 
       // -- BUGFIX: RESCUE PROJECTS MISTAKENLY ASSIGNED TO "Books" or "Courses" --
       const buggyRootFolders = projects.filter(
@@ -48,14 +50,14 @@ export function registerProjectHandlers(ipcMain: any) {
           "UPDATE projects SET parent_id = NULL WHERE parent_id = ?",
           [buggy.id],
         );
-        await runDb("DELETE FROM projects WHERE id = ?", [buggy.id]);
+        await ProjectRepository.deleteProject(buggy.id);
       }
       if (buggyRootFolders.length > 0) {
-        projects = await getDb("SELECT * FROM projects"); // Reload after rescue
+        projects = await ProjectRepository.getAllProjects(); // Reload after rescue
       }
       // -- MIGRATION START --
       // Migrate existing root projects to Books/ or Courses/
-      const baseDocs = path.join(vaultPath, "docs");
+      const baseDocs = vaultPath;
       for (const p of projects.filter((p) => !p.parent_id)) {
         const typeDir = p.type === "course" ? "Courses" : "Books";
         const oldPath = path.join(baseDocs, sanitize(p.name));
@@ -105,9 +107,11 @@ export function registerProjectHandlers(ipcMain: any) {
           ...note,
           content,
           tags: parsedTags,
+          favourite: Boolean(note.favourite),
+          sort_order: note.sort_order || 0,
           chapterId: note.project_id,
-          ai_summary: note.ai_summary,
-          ai_summary_hash: note.ai_summary_hash,
+          ai_summary: note.ai_summary || undefined,
+          ai_summary_hash: note.ai_summary_hash || undefined,
           flashcard: fc
             ? {
                 question: fc.question,
@@ -126,7 +130,10 @@ export function registerProjectHandlers(ipcMain: any) {
 
       const win = BrowserWindow.getAllWindows()[0];
       if (win) {
-        startWatcher(vaultPath, win);
+        // Defer watcher initialization to prevent blocking the UI thread and freezing React
+        setTimeout(() => {
+          startWatcher(vaultPath, win);
+        }, 1000);
       }
 
       return { success: true, data: { projects: rootProjects, allNotesMap } };
@@ -139,104 +146,56 @@ export function registerProjectHandlers(ipcMain: any) {
   // Projects CRUD
   typedIpcHandle(
     "db:saveProject",
-    async (_, vaultPath: string, project: any) => {
+    async (_, vaultPath: string, rawProject: any) => {
       try {
-        // Find old project to handle rename
-        const oldProj = await getDb("SELECT * FROM projects WHERE id = ?", [
-          project.id,
-        ])[0];
+        const project = ProjectSchema.parse(rawProject);
 
-        await runDb(
-          "INSERT OR REPLACE INTO projects (id, name, type, color, parent_id, author, url, pdf_path, instructor, platform) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-          [
-            project.id,
-            project.name,
-            project.type,
-            project.color,
-            project.parent_id || null,
-            project.author || null,
-            project.url || null,
-            project.pdf_path || null,
-            project.instructor || null,
-            project.platform || null,
-          ],
-        );
+        // Build map for old state
+        const allProjects = await ProjectRepository.getAllProjects();
+        const projMap = allProjects.reduce((acc: any, p: any) => {
+          acc[p.id] = p;
+          return acc;
+        }, {});
 
-        if (vaultPath) {
-          const allProjects = await getDb("SELECT * FROM projects");
-          const projMap = allProjects.reduce((acc: any, p: any) => {
-            acc[p.id] = p;
-            return acc;
-          }, {});
-
-          function buildPath(
-            id: string,
-            overrideName?: string,
-            overrideParentId?: string | null,
-          ): string {
-            const p = projMap[id];
-            if (!p) return "";
-            const name = overrideName !== undefined ? overrideName : p.name;
-            const parentId =
-              overrideParentId !== undefined ? overrideParentId : p.parent_id;
-            if (!parentId) {
-              const typeDir = p.type === "course" ? "Courses" : "Books";
-              return path.join(typeDir, sanitize(name));
-            }
-            return path.join(buildPath(parentId), sanitize(name));
+        function buildPath(pObj: any, map: any): string {
+          if (!pObj) return "";
+          if (!pObj.parent_id) {
+            const typeDir = pObj.type === "course" ? "Courses" : "Books";
+            return path.join(typeDir, sanitize(pObj.name));
           }
-
-          const base = path.join(vaultPath, "docs");
-          const newRelPath = buildPath(
-            project.id,
-            project.name,
-            project.parent_id || null,
-          );
-          const newPath = path.join(base, newRelPath);
-
-          if (oldProj) {
-            const nameChanged = oldProj.name !== project.name;
-            const parentChanged = oldProj.parent_id !== project.parent_id;
-
-            if (nameChanged || parentChanged) {
-              const oldRelPath = buildPath(
-                oldProj.id,
-                oldProj.name,
-                oldProj.parent_id,
-              );
-              const oldPath = path.join(base, oldRelPath);
-
-              if ((await exists(oldPath)) && oldPath !== newPath) {
-                await fs
-                  .rename(oldPath, newPath)
-                  .catch((e) => console.error("Rename failed:", e));
-              }
-            }
-          } else {
-            // New project: create the directory
-            if (!(await exists(newPath))) {
-              await fs
-                .mkdir(newPath, { recursive: true })
-                .catch((e) => console.error("Mkdir failed:", e));
-            }
-          }
+          const parent = map[pObj.parent_id];
+          return path.join(buildPath(parent, map), sanitize(pObj.name));
         }
-        return { success: true };
-      } catch (error: any) {
-        console.error("[getInitialState error]", error);
-        return { success: false, error: error.message };
-      }
-    },
-  );
 
-  typedIpcHandle(
-    "db:archiveProject",
-    async (_, vaultPath: string, projectId: string) => {
-      try {
-        if (!vaultPath) throw new Error("Vault path not set");
-        await runDb("UPDATE projects SET is_archived = 1 WHERE id = ?", [
-          projectId,
-        ]);
+        const oldProj = projMap[project.id];
+        let oldPath = "";
+        if (oldProj) {
+          oldPath = path.join(vaultPath, buildPath(oldProj, projMap));
+        }
+
+        // Save to DB
+        await ProjectRepository.saveProject(project);
+
+        // Compute new path
+        projMap[project.id] = project;
+        const newPath = path.join(vaultPath, buildPath(project, projMap));
+
+        // File system operations
+        if (oldProj && oldPath && oldPath !== newPath) {
+          if (await exists(oldPath)) {
+            await fs.mkdir(path.dirname(newPath), { recursive: true });
+            await fs
+              .rename(oldPath, newPath)
+              .catch((e) => console.error("Rename failed", e));
+          } else {
+            // old path didn't exist, just create new
+            await fs.mkdir(newPath, { recursive: true });
+          }
+        } else if (!oldProj || !(await exists(newPath))) {
+          // New project or missing folder
+          await fs.mkdir(newPath, { recursive: true });
+        }
+
         return { success: true };
       } catch (error: any) {
         console.error("[getInitialState error]", error);
@@ -268,7 +227,7 @@ export function registerProjectHandlers(ipcMain: any) {
         if (!vaultPath) throw new Error("Vault path not set");
 
         // Compute path before deleting from DB
-        const allProjects = await getDb("SELECT * FROM projects");
+        const allProjects = await ProjectRepository.getAllProjects();
         const projMap = allProjects.reduce((acc: any, p: any) => {
           acc[p.id] = p;
           return acc;
@@ -284,7 +243,7 @@ export function registerProjectHandlers(ipcMain: any) {
           return path.join(buildPath(p.parent_id), sanitize(p.name));
         }
 
-        const base = path.join(vaultPath, "docs");
+        const base = vaultPath;
         const relPath = buildPath(projectId);
 
         // We will cascade delete projects, their chapters, and their notes.
@@ -294,9 +253,9 @@ export function registerProjectHandlers(ipcMain: any) {
           [projectId],
         );
         // Delete chapters
-        await runDb("DELETE FROM projects WHERE parent_id = ?", [projectId]);
+        await ProjectRepository.deleteProjectsByParentId(projectId);
         // Finally delete the project itself
-        await runDb("DELETE FROM projects WHERE id = ?", [projectId]);
+        await ProjectRepository.deleteProject(projectId);
 
         // Delete from file system
         if (relPath) {
@@ -323,7 +282,7 @@ export function registerProjectHandlers(ipcMain: any) {
         if (!vaultPath) throw new Error("Vault path not set");
 
         // Compute path before deleting from DB
-        const allProjects = await getDb("SELECT * FROM projects");
+        const allProjects = await ProjectRepository.getAllProjects();
         const projMap = allProjects.reduce((acc: any, p: any) => {
           acc[p.id] = p;
           return acc;
@@ -339,13 +298,13 @@ export function registerProjectHandlers(ipcMain: any) {
           return path.join(buildPath(p.parent_id), sanitize(p.name));
         }
 
-        const base = path.join(vaultPath, "docs");
+        const base = vaultPath;
         const relPath = buildPath(chapterId);
 
         // Delete notes associated with this chapter
-        await runDb("DELETE FROM notes WHERE project_id = ?", [chapterId]);
+        await NoteRepository.deleteNotesByChapterId(chapterId);
         // Delete the chapter
-        await runDb("DELETE FROM projects WHERE id = ?", [chapterId]);
+        await ProjectRepository.deleteProject(chapterId);
 
         // Delete from file system
         if (relPath) {

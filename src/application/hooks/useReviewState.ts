@@ -3,6 +3,7 @@ import { useState, useCallback, useMemo, useEffect } from "react";
 import type { Note } from "../../domain/models";
 import { produce } from "immer";
 import { getNextInterval, calculateNextSM2 } from "../../utils/sm2";
+import { getLocalDateString } from "../../utils/dateUtils";
 
 export function useReviewState(
   vaultPath: string | null,
@@ -16,7 +17,7 @@ export function useReviewState(
   const [revealedCards, setRevealedCards] = useState<Set<string>>(new Set());
   const [activityLogs, setActivityLogs] = useState<any[]>([]);
 
-  const todayStr = useMemo(() => new Date().toISOString().split("T")[0], []);
+  const todayStr = getLocalDateString();
 
   useEffect(() => {
     if (vaultPath) {
@@ -60,7 +61,7 @@ export function useReviewState(
         sm2Result.interval = explicitInterval;
         const nextDate = new Date();
         nextDate.setDate(nextDate.getDate() + explicitInterval);
-        sm2Result.nextReviewDate = nextDate.toISOString().split("T")[0];
+        sm2Result.nextReviewDate = getLocalDateString(nextDate);
       }
       const updatedNote = {
         ...note,
@@ -74,7 +75,7 @@ export function useReviewState(
         await ipcClient.db.saveNote(vaultPath, updatedNote);
         await ipcClient.db.logActivity(
           vaultPath,
-          new Date().toISOString().split("T")[0],
+          getLocalDateString(),
           "review",
         );
         const logsRes2 = await ipcClient.db.getActivityLogs(vaultPath);

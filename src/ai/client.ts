@@ -140,17 +140,39 @@ class AIClient {
     if (!text || text.trim().length === 0) return [];
 
     if (model.startsWith("remote:")) {
-      const prompt = `Given the following text, generate a comma-separated list of up to 5 relevant tags. ${existingTags.length > 0 ? `Consider these existing tags: ${existingTags.join(", ")}.` : ""} Only return the tags, separated by commas, nothing else.\n\nText: ${text}`;
+      const truncatedText = text.substring(0, 4000); // Prevent context window overflow
+      const prompt = `You are an expert metadata specialist. Analyze the text and extract up to 5 highly relevant tags.
+
+Rules:
+1. Output ONLY a comma-separated list of tags. No explanations, no numbering, no prefix.
+2. Tags must be concise (1-2 words), lowercase, singular nouns.
+3. Focus on core concepts and entities.
+${existingTags.length > 0 ? `4. Prefer reusing these existing tags if relevant: ${existingTags.slice(0, 40).join(", ")}` : ""}
+
+Text:
+${truncatedText}`;
       const response = await this.handleRemoteAPI(
         prompt,
         model,
         apiKeys,
         options,
       );
-      return response
-        .split(",")
-        .map((t: string) => t.trim())
-        .filter((t: string) => t.length > 0);
+      const cleanedTags = response.replace(
+        /^\s*(here are the tags:|tags:|tags\s*\n)/i,
+        "",
+      );
+      return cleanedTags
+        .split(/[,|\n]/)
+        .map((t: string) =>
+          t
+            .trim()
+            .toLowerCase()
+            .replace(/[^a-z0-9- ]/g, ""),
+        )
+        .filter(
+          (t: string) =>
+            t.length > 0 && t.length <= 25 && t.split(" ").length <= 3,
+        );
     }
 
     return this.sendRequest<string[]>(

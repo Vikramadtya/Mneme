@@ -7,10 +7,7 @@ export function useVaultState(
   showToast: (msg: string, type?: "success" | "error" | "info") => void,
 ) {
   const [syncing, setSyncing] = useState(false);
-  const [isLive, setIsLive] = useState(false);
-  const [liveUrl, setLiveUrl] = useState<string | null>(null);
   const [vaultPath, setVaultPath] = useState<string | null>(null);
-  const [mkdocsConfig, setMkdocsConfig] = useState<string>("");
   const [isSavingConfig, setIsSavingConfig] = useState(false);
   const [vaultSettings, setVaultSettings] = useState<VaultSettings | null>(
     null,
@@ -81,64 +78,22 @@ export function useVaultState(
     }
   }, [showToast]);
 
-  const handleToggleLive = useCallback(async () => {
-    if (!vaultPath) return;
-    const res = await ipcClient.app.toggleLive(vaultPath);
-    if (res.success) {
-      setIsLive((res.data as any)?.active || false);
-      if ((res.data as any)?.active) {
-        setLiveUrl(res.data?.url || null);
-      } else {
-        setLiveUrl(null);
-      }
-    } else {
-      showToast(res.error || "Failed to start live preview", "error");
-    }
-  }, [vaultPath, showToast]);
-
-  const handleOpenLive = useCallback(async () => {
-    if (liveUrl) {
-      await ipcClient.app.openExternal(liveUrl);
-    }
-  }, [liveUrl]);
-
   const handleSaveSettings = useCallback(
     async (newSettings?: Partial<VaultSettings>) => {
       if (!vaultPath || !vaultSettings) return;
       setIsSavingConfig(true);
       try {
         const mergedSettings = { ...vaultSettings, ...newSettings };
-
-        // Save MkDocs config
-        if (mkdocsConfig) {
-          let updatedConfig = mkdocsConfig;
-          if (mergedSettings.mkdocsSiteName) {
-            updatedConfig = updatedConfig.replace(
-              /^site_name:\s*.*$/m,
-              `site_name: ${mergedSettings.mkdocsSiteName}`,
-            );
-            setMkdocsConfig(updatedConfig);
-          }
-          await ipcClient.fs.saveMkdocsConfig(vaultPath, updatedConfig);
-        }
-
-        // Save all vault settings
         await ipcClient.db.saveSettings(mergedSettings);
-
-        // Generate GitHub Action if enabled
-        if (mergedSettings.githubActionsEnabled) {
-          await ipcClient.app.generateGithubAction(vaultPath);
-        }
-
         setVaultSettings(mergedSettings);
-        showToast("Settings saved successfully!", "success");
+        showToast("Settings saved successfully", "success");
       } catch (e: any) {
         showToast("Failed to save settings: " + e.message, "error");
       } finally {
         setIsSavingConfig(false);
       }
     },
-    [vaultPath, vaultSettings, mkdocsConfig, showToast],
+    [vaultPath, vaultSettings, showToast],
   );
 
   useEffect(() => {
@@ -155,22 +110,14 @@ export function useVaultState(
   return {
     syncing,
     setSyncing,
-    isLive,
-    setIsLive,
-    liveUrl,
-    setLiveUrl,
     vaultPath,
     setVaultPath,
-    mkdocsConfig,
-    setMkdocsConfig,
     isSavingConfig,
     setIsSavingConfig,
     vaultSettings,
     setVaultSettings,
     handleSync,
     handleSelectVault,
-    handleToggleLive,
-    handleOpenLive,
     handleSaveSettings,
     performActualSync,
     isSyncModalOpen,

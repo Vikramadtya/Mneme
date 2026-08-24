@@ -23,8 +23,12 @@ import {
   List,
   Layers,
   Sparkles,
+  AppWindow,
 } from "lucide-react";
 import { useVault, useNotes, useUI, useReview } from "../application/context";
+import { useNoteAI } from "./editor/hooks/useNoteAI";
+import { useNoteAssets } from "./editor/hooks/useNoteAssets";
+import { useNoteState } from "./editor/hooks/useNoteState";
 import { type Note } from "../domain/models";
 import { preprocessMarkdown } from "../utils/markdownUtils";
 import { Tooltip } from "./Tooltip";
@@ -63,6 +67,9 @@ export function NoteEditor({ note }: { note: any }) {
   const setFocusedNoteId = useNotes((s) => s.setFocusedNoteId);
   const editingNoteId = useUI((s) => s.editingNoteId);
   const setEditingNoteId = useUI((s) => s.setEditingNoteId);
+  const activeTabId = useUI((s: any) => s.activeTabId);
+  const setActiveNoteToc = useUI((s: any) => s.setActiveNoteToc);
+  const focusedNoteId = useNotes((s: any) => s.focusedNoteId);
   const editNoteTitle = useUI((s) => s.editNoteTitle);
   const setEditNoteTitle = useUI((s) => s.setEditNoteTitle);
   const editNoteContent = useUI((s) => s.editNoteContent);
@@ -77,6 +84,7 @@ export function NoteEditor({ note }: { note: any }) {
   const toggleFavourite = useUI((s) => s.toggleFavourite);
   const setIsHistoryOpen = useUI((s) => s.setIsHistoryOpen);
   const uiShowToast = useUI((s) => s.showToast);
+  const addTab = useUI((s: any) => s.addTab);
   const setActiveHistoryNote = useNotes((s) => s.setActiveHistoryNote);
   const setNoteHistory = useNotes((s) => s.setNoteHistory);
 
@@ -99,319 +107,59 @@ export function NoteEditor({ note }: { note: any }) {
   const revealedCards = useReview((s) => s.revealedCards);
 
   const editorRef = useRef<ReactCodeMirrorRef>(null);
-  const [showToast, setShowToast] = useState(false);
   const [showLinkSuggestions, setShowLinkSuggestions] = useState(false);
   const [splitPreview, setSplitPreview] = useState(false);
   const [linkSearch, setLinkSearch] = useState("");
-
-  const [localContent, setLocalContent] = useState(editNoteContent);
-  const [viewContent, setViewContent] = useState(note.content || "");
-  const [isGeneratingAI, setIsGeneratingAI] = useState(false);
-  const [aiSummaryPopup, setAiSummaryPopup] = useState<string | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
-  const handleAIReadSummary = async () => {
-    try {
-      const currentHash = hashString(viewContent || "");
-      if (note.ai_summary_hash === currentHash && note.ai_summary) {
-        setAiSummaryPopup(note.ai_summary);
-        return;
-      }
-      setIsGeneratingAI(true);
-      uiShowToast(
-        "Generating AI Summary (this may take a few seconds)...",
-        "info",
-      );
-      const { aiClient } = await import("../ai/client");
-      const model =
-        vaultSettings.aiSummaryModel ||
-        "onnx-community/SmolLM2-135M-Instruct-ONNX";
-      const summary = await aiClient.generateSummary(
-        viewContent,
-        model,
-        {
-          temperature: vaultSettings.aiTemperature,
-          max_new_tokens: vaultSettings.aiMaxTokens,
-          repetition_penalty: vaultSettings.aiRepetitionPenalty,
-        },
-        {
-          openAiKey: vaultSettings.openAiKey,
-          anthropicKey: vaultSettings.anthropicKey,
-          geminiKey: vaultSettings.geminiKey,
-        },
-      );
-      if (summary) {
-        setAiSummaryPopup(summary);
-        const updatedNote = {
-          ...note,
-          ai_summary: summary,
-          ai_summary_hash: currentHash,
-        };
-        delete updatedNote.content; // Prevent overwriting the file with empty string!
-        if (vaultPath) {
-          await ipcClient.db.saveNote(vaultPath, updatedNote);
-          note.ai_summary = summary;
-          note.ai_summary_hash = currentHash;
-        }
-      }
-    } catch (e: any) {
-      uiShowToast("AI Generation failed: " + e.message, "error");
-    } finally {
-      setIsGeneratingAI(false);
-    }
-  };
-
-  const handleAIGenerate = async (type: "summary" | "tags") => {
-    try {
-      setIsGeneratingAI(true);
-      uiShowToast(
-        `Generating AI ${type === "summary" ? "Summary" : "Tags"} (this may take a few seconds)...`,
-        "info",
-      );
-      const { aiClient } = await import("../ai/client");
-
-      if (type === "summary") {
-        const currentHash = hashString(localContent || "");
-        if (note.ai_summary_hash === currentHash && note.ai_summary) {
-          setAiSummaryPopup(note.ai_summary);
-          setIsGeneratingAI(false);
-          return;
-        }
-        const model =
-          vaultSettings.aiSummaryModel ||
-          "onnx-community/SmolLM2-135M-Instruct-ONNX";
-        const summary = await aiClient.generateSummary(
-          localContent,
-          model,
-          {
-            temperature: vaultSettings.aiTemperature,
-            max_new_tokens: vaultSettings.aiMaxTokens,
-            repetition_penalty: vaultSettings.aiRepetitionPenalty,
-          },
-          {
-            openAiKey: vaultSettings.openAiKey,
-            anthropicKey: vaultSettings.anthropicKey,
-            geminiKey: vaultSettings.geminiKey,
-          },
-        );
-        if (summary) {
-          setAiSummaryPopup(summary);
-          const updatedNote = {
-            ...note,
-            ai_summary: summary,
-            ai_summary_hash: currentHash,
-            content: localContent,
-            title: editNoteTitle,
-          };
-          if (vaultPath) {
-            await ipcClient.db.saveNote(vaultPath, updatedNote);
-            note.ai_summary = summary;
-            note.ai_summary_hash = currentHash;
-          }
-        }
-      } else if (type === "tags") {
-        const model =
-          vaultSettings.aiTagModel ||
-          "onnx-community/SmolLM2-135M-Instruct-ONNX";
-        // Collect existing unique tags from the vault
-        const existingTags = Array.from(
-          new Set(
-            allNotesFlat.flatMap((n) =>
-              n.metadata?.tags
-                ? n.metadata.tags
-                    .split(",")
-                    .map((t) => t.trim())
-                    .filter(Boolean)
-                : [],
-            ),
-          ),
-        );
-
-        const tags = await aiClient.generateTags(
-          localContent,
-          model,
-          existingTags,
-          {
-            temperature: vaultSettings.aiTemperature,
-            repetition_penalty: vaultSettings.aiRepetitionPenalty,
-          },
-          {
-            openAiKey: vaultSettings.openAiKey,
-            anthropicKey: vaultSettings.anthropicKey,
-            geminiKey: vaultSettings.geminiKey,
-          },
-        );
-        if (tags && tags.length > 0) {
-          const currentTags = editNoteTags
-            ? editNoteTags
-                .split(",")
-                .map((t) => t.trim())
-                .filter(Boolean)
-            : [];
-          const newTags = Array.from(new Set([...currentTags, ...tags]));
-          setEditNoteTags(newTags.join(", "));
-          uiShowToast("AI Tags generated successfully!", "success");
-        }
-      }
-    } catch (e: any) {
-      uiShowToast("AI Generation failed: " + e.message, "error");
-    } finally {
-      setIsGeneratingAI(false);
-    }
-  };
-
-  const [isLoadingContent, setIsLoadingContent] = useState(false);
-
-  // Lazy-load content for the read/view mode when note is rendered
-  useEffect(() => {
-    if (vaultPath && note.id) {
-      setIsLoadingContent(true);
-      setViewContent(note.content || "");
-      ipcClient.db.getNoteContent(vaultPath, note.id).then((res: any) => {
-        if (res.success && typeof res.data === "string") {
-          setViewContent(res.data);
-        }
-        setIsLoadingContent(false);
-      });
-    }
-  }, [note.id, vaultPath]);
-
-  // Sync upstream on edit mode start — also update viewContent so read mode stays fresh after save
-  useEffect(() => {
-    setLocalContent(editNoteContent);
-    // If we're editing this note and content arrives, update our view cache too
-    if (editingNoteId === note.id && editNoteContent) {
-      setViewContent(editNoteContent);
-    }
-  }, [editNoteContent, editingNoteId, note.id]);
-
-  const debouncedSetEditNoteContent = useDebouncedCallback((val) => {
-    setEditNoteContent(val);
-  }, 150);
-
-  const localContentRef = useRef(localContent);
-  useEffect(() => {
-    localContentRef.current = localContent;
-  }, [localContent]);
-
-  const debouncedSave = useDebouncedCallback(() => {
-    saveEdit(false, localContentRef.current);
-    setShowToast(true);
-    setTimeout(() => setShowToast(false), 2000);
-  }, 1500);
-
-  // Flush any pending save when NoteEditor unmounts (e.g. switching notes) or app quits
-  useEffect(() => {
-    const handleBeforeUnload = () => debouncedSave.flush();
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => {
-      debouncedSave.flush();
-      window.removeEventListener("beforeunload", handleBeforeUnload);
-    };
-  }, [debouncedSave]);
-
-  // 1.1 Auto-save on blur / debounce
-  useEffect(() => {
-    if (!editingNoteId) return;
-    debouncedSave();
-  }, [
-    editNoteTitle,
+  const {
     localContent,
-    editNoteTags,
-    editFlashcardQ,
-    editFlashcardA,
-    editingNoteId,
-    debouncedSave,
+    viewContent,
+    isLoadingContent,
+    showToast: isShowToast,
+    handleContentChange: handleContentStateChange,
+    saveAndClose,
+  } = useNoteState(note);
+  const {
+    isGeneratingAI,
+    aiSummaryPopup,
+    setAiSummaryPopup,
+    handleAIReadSummary,
+    handleAIGenerate,
+  } = useNoteAI(note, localContent, viewContent);
+  const { insertText, handlePaste, handleEditorDrop } = useNoteAssets(
+    note,
+    editorRef,
+  );
+
+  // Compute ToC
+  useEffect(() => {
+    if (activeTabId === note.id || focusedNoteId === note.id) {
+      const content = editingNoteId === note.id ? editNoteContent : viewContent;
+      const toc = [];
+      const matches = [...(content || "").matchAll(/^(#{1,6})\s+(.*)$/gm)];
+      for (const match of matches) {
+        toc.push({
+          level: match[1].length,
+          text: match[2],
+          id: match[2].toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+        });
+      }
+      setActiveNoteToc(toc);
+    }
+  }, [
+    viewContent,
+    editNoteContent,
+    editingNoteId === note.id,
+    activeTabId,
+    focusedNoteId,
+    note.id,
+    setActiveNoteToc,
   ]);
-
-  // 1.2 Markdown Toolbar action (preserves native Undo/Redo)
-  const insertText = (before: string, after: string = "") => {
-    const view = editorRef.current?.view;
-    if (!view) return;
-
-    const { from, to } = view.state.selection.main;
-    const selectedText = view.state.sliceDoc(from, to);
-
-    view.dispatch({
-      changes: { from, to, insert: before + selectedText + after },
-      selection: {
-        anchor: from + before.length,
-        head: from + before.length + selectedText.length,
-      },
-    });
-    view.focus();
-  };
-
-  // 1.3 Paste image from clipboard
-  const handlePaste = async (e: any) => {
-    const clipboardData =
-      e.clipboardData || (e.originalEvent && e.originalEvent.clipboardData);
-    const items = clipboardData?.items;
-    if (!items) return;
-
-    for (let i = 0; i < items.length; i++) {
-      if (items[i].type.indexOf("image") !== -1) {
-        e.preventDefault();
-        const file = items[i].getAsFile();
-        if (file && vaultPath) {
-          try {
-            const buffer = await file.arrayBuffer();
-            const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
-            const res = await ipcClient.fs.saveAsset(
-              vaultPath,
-              `${Math.random().toString(36).substring(7)}_${sanitizedName}`,
-              buffer,
-              note.project_id || (note as any).chapterId,
-            );
-            if (res.success && res.url) {
-              const markdownAsset = `\n![${file.name}](${encodeURI(res.url)})\n`;
-              insertText(markdownAsset);
-              uiShowToast("Image uploaded", "success");
-            }
-          } catch (err: any) {
-            uiShowToast("Failed to upload image: " + err.message, "error");
-          }
-        }
-      }
-    }
-  };
-
-  const handleEditorDrop = async (e: DragEvent) => {
-    e.preventDefault();
-    const file = e.dataTransfer?.files[0];
-    if (
-      !file ||
-      !(file.type.startsWith("image/") || file.type === "application/pdf")
-    )
-      return;
-
-    if (vaultPath) {
-      try {
-        const buffer = await file.arrayBuffer();
-        const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
-        const res = await ipcClient.fs.saveAsset(
-          vaultPath,
-          `${Math.random().toString(36).substring(7)}_${sanitizedName}`,
-          buffer,
-          note.project_id || (note as any).chapterId,
-        );
-
-        if (res.success && res.url) {
-          const isPdf = file.type === "application/pdf";
-          const markdownAsset = `\n${isPdf ? "" : "!"}[${file.name}](${encodeURI(res.url)})\n`;
-          insertText(markdownAsset);
-          uiShowToast("File uploaded", "success");
-        }
-      } catch (err: any) {
-        uiShowToast("Failed to save asset: " + err.message, "error");
-      }
-    }
-  };
 
   // 1.4 Note linking autocomplete & Undo tracking
   const handleContentChange = (val: string, viewUpdate?: any) => {
-    setLocalContent(val);
-    debouncedSetEditNoteContent(val);
+    handleContentStateChange(val);
 
     if (viewUpdate && viewUpdate.view) {
       const view = viewUpdate.view;
@@ -475,7 +223,7 @@ export function NoteEditor({ note }: { note: any }) {
       className="bg-card rounded-2xl shadow-xl shadow-zinc-200/50 dark:shadow-2xl shadow-black/40 border border-border overflow-hidden scroll-m-32 relative mb-8 transition-shadow duration-300 hover:shadow-xl"
     >
       {/* Toast Notification */}
-      {showToast && (
+      {isShowToast && (
         <div className="absolute top-4 right-4 bg-gray-800 dark:bg-gray-700 text-white text-xs px-3 py-1.5 rounded shadow-lg z-50 flex items-center animate-fade-in-out">
           <CheckCircle2 size={12} className="mr-1.5 text-green-400" /> Saved
         </div>
@@ -557,6 +305,14 @@ export function NoteEditor({ note }: { note: any }) {
                 className="text-gray-400 hover:text-blue-500 transition-colors"
               >
                 <Edit2 size={16} />
+              </button>
+            </Tooltip>
+            <Tooltip content="Open in Tab">
+              <button
+                onClick={() => addTab({ id: note.id, title: note.title })}
+                className="text-gray-400 hover:text-green-500 transition-colors"
+              >
+                <AppWindow size={16} />
               </button>
             </Tooltip>
             <Tooltip content="Delete Note">
@@ -823,8 +579,7 @@ export function NoteEditor({ note }: { note: any }) {
                 </button>
                 <button
                   onClick={() => {
-                    debouncedSave.cancel();
-                    saveEdit(true, localContent);
+                    saveAndClose();
                   }}
                   className="px-4 py-2 rounded-lg font-medium bg-[#007aff] text-white hover:bg-blue-600 flex items-center"
                 >

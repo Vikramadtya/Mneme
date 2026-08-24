@@ -17,18 +17,17 @@ export interface IpcHandlers {
   "db:saveSetting": (key: string, value: string) => Promise<IpcResponse>;
   "db:saveSettings": (settings: any) => Promise<IpcResponse>;
   "git:sync": (vaultPath: string) => Promise<IpcResponse>;
+  "git:test": (vaultPath: string) => Promise<IpcResponse>;
   "git:status": (vaultPath: string) => Promise<IpcResponse<any>>;
   "git:commitAll": (vaultPath: string, message: string) => Promise<IpcResponse>;
   "git:squashHistory": (vaultPath: string) => Promise<IpcResponse>;
   "git:commitLocal": (vaultPath: string) => Promise<IpcResponse>;
   "app:getConfig": () => Promise<any>;
   "app:setConfig": (config: any) => Promise<IpcResponse>;
-  "fs:readMkdocsConfig": (vaultPath: string) => Promise<IpcResponse<string>>;
-  "fs:saveMkdocsConfig": (
+  "app:generateGithubAction": (
     vaultPath: string,
-    content: string,
+    enabled: boolean,
   ) => Promise<IpcResponse>;
-  "app:generateGithubAction": (vaultPath: string) => Promise<IpcResponse>;
   "db:syncFromVault": (vaultPath: string) => Promise<IpcResponse>;
   "db:getInitialState": (
     vaultPath: string,
@@ -45,9 +44,6 @@ export interface IpcHandlers {
     noteId: string,
     commitHash: string,
   ) => Promise<IpcResponse<string>>;
-  "app:toggleLive": (
-    vaultPath: string,
-  ) => Promise<IpcResponse<{ url?: string }>>;
   "db:saveProject": (
     vaultPath: string,
     project: Project,

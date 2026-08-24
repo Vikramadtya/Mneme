@@ -1,3 +1,5 @@
+import { getLocalDateString } from "./dateUtils";
+
 export interface SM2Data {
   repetition?: number;
   easeFactor?: number;
@@ -27,7 +29,7 @@ export function calculateNextSM2(
 
   const nextDate = new Date();
   nextDate.setDate(nextDate.getDate() + interval);
-  const nextReviewDate = nextDate.toISOString().split("T")[0];
+  const nextReviewDate = getLocalDateString(nextDate);
 
   return { repetition, easeFactor, interval, nextReviewDate };
 }

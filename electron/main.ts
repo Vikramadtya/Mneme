@@ -3,10 +3,6 @@ import { app, BrowserWindow } from "electron";
 import path from "node:path";
 import { setupDatabase, registerIpcHandlers } from "./ipcHandlers";
 import { autoUpdater } from "electron-updater";
-import log from "electron-log/main";
-
-log.initialize();
-Object.assign(console, log.functions);
 
 process.env.APP_ROOT = path.join(__dirname, "..");
 
@@ -163,7 +159,7 @@ app.whenReady().then(() => {
 
   if (!VITE_DEV_SERVER_URL) {
     autoUpdater.checkForUpdatesAndNotify().catch((err) => {
-      log.error("Auto updater error:", err);
+      console.error("Auto updater error:", err);
     });
   }
 });

@@ -18,6 +18,7 @@ export interface Note {
   content?: string; // Content is often lazy-loaded
   flashcard?: FlashcardData;
   favourite?: boolean;
+  sort_order?: number;
   metadata?: any;
   ai_summary?: string;
   ai_summary_hash?: string;
@@ -58,18 +59,11 @@ export interface VaultSettings {
   gitGithubToken?: string;
   gitBranch?: string;
   githubActions?: boolean;
-  mkdocsCommand?: string;
-  mkdocsLiveUrl?: string;
-  mkdocsSiteName?: string;
-  mkdocsPort?: string;
   autoSave?: boolean;
   githubToken?: string;
   githubActionsEnabled?: boolean;
   gitAuthorName?: string;
   gitAuthorEmail?: string;
-  mkdocsAuthor?: string;
-  mkdocsDescription?: string;
-  mkdocsSiteUrl?: string;
   aiSummaryModel?: string;
   aiTagModel?: string;
   aiEnabled?: string;

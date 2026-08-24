@@ -11,7 +11,7 @@ import {
   Edit2,
 } from "lucide-react";
 import { useNotes, useVault, useUI } from "../application/context";
-import type { Project } from "../types";
+import type { Project } from "../domain/models";
 import { ipcClient } from "@/api/ipcClient";
 import { DeleteConfirmModal } from "./DeleteConfirmModal";
 
@@ -56,7 +56,7 @@ export function ProjectLibrary({ type }: ProjectLibraryProps) {
   const handleOpenPdf = (e: React.MouseEvent, project: Project) => {
     e.stopPropagation();
     if (project.pdf_path && vaultPath) {
-      const fullPath = `file://${vaultPath}/docs/${project.pdf_path}`;
+      const fullPath = `file://${vaultPath}/${project.pdf_path}`;
       setActivePdf(fullPath);
     }
   };

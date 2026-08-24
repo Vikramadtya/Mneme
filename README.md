@@ -21,7 +21,7 @@ This document serves as the **Engineer Onboarding Guide**. It contains everythin
 ## ✨ Core Features
 - **Local-First Markdown:** All notes are stored as plain `.md` files on your disk. No cloud lock-in.
 - **Lightning Fast Editor:** Custom-built React CodeMirror integration with live KaTeX rendering, Prettier auto-formatting, and intelligent frontmatter parsing.
-- **Git & MkDocs Integration:** Automatically backs up your vault to GitHub. Click "Go Live" to instantly compile and serve a static MkDocs site locally.
+- **Git & Static Site Integration:** Automatically backs up your vault to GitHub. Vaults are natively scaffolded with a GitHub Action (`deploy.yml`) that automatically builds and deploys a beautiful VitePress site to GitHub Pages whenever you sync.
 - **Full-Text Search (FTS5):** Instantaneous search across thousands of notes powered by SQLite's FTS5 virtual tables.
 - **Local AI Inference:** Summarization and auto-tagging run entirely on your local machine using `@huggingface/transformers` in a dedicated Web Worker.
 - **Flashcard Spaced Repetition:** Built-in scheduling algorithm embedded directly into your note-taking workflow.
@@ -74,7 +74,6 @@ Debugging Electron apps can be notoriously difficult. We have implemented a unif
 
 ### Prerequisites
 - Node.js (v18 or higher)
-- Python 3 (Optional, required for the "Go Live" MkDocs feature)
 
 ### Installation
 1. **Clone & Install:**
@@ -111,14 +110,10 @@ When you are assigned a ticket, here is where you should look:
 
 ## 🛠️ Advanced Development Notes
 
-### 1. The "Go Live" Zombie Process
-The "Go Live" feature spawns a Python `mkdocs serve` process on port 8000. Historically, hot-reloading the Electron app would orphan this process, causing subsequent launches to fail with "Address already in use". 
-**Solution:** `AppHandlers.ts` contains a targeted `pkill -f` command that executes before launching a new MkDocs instance, ensuring total cleanup of zombie processes. Note: MkDocs can take ~30 seconds to compile a large vault initially.
-
-### 2. Prettier Auto-Format
+### 1. Prettier Auto-Format
 Markdown auto-formatting runs entirely in the backend during the `db:saveNote` execution. Due to Vite/Electron bundling quirks with dynamic imports in Prettier v3, we use a `customRequire` function to manually resolve `prettier/plugins/markdown` from the `node_modules` folder.
 
-### 3. macOS Gatekeeper (The "Damaged App" Error)
+### 2. macOS Gatekeeper (The "Damaged App" Error)
 When building the app locally using `npm run build:mac`, macOS assigns a quarantine flag to the `.app` or `.dmg` if it is transferred via a browser without Apple Codesigning/Notarization. 
 If testing a `.dmg` and you see a "Memoriser is damaged" error, run:
 ```bash

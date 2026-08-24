@@ -6,7 +6,8 @@ import { arrayMove } from "@dnd-kit/sortable";
 
 export function useSidebarController() {
   const { handleSync, vaultPath } = useVault();
-  const { projects, allNotesFlat, setProjects } = useNotes();
+  const { projects, allNotesFlat, setProjects, allNotesMap, setAllNotesMap } =
+    useNotes();
 
   const [sidebarSearch, setSidebarSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -80,6 +81,33 @@ export function useSidebarController() {
   const handleDragEnd = async (event: any) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
+
+    // Check if it's a note
+    const draggedNote = allNotesFlat.find((n: any) => n.id === active.id);
+    if (draggedNote) {
+      const projId = draggedNote.project_id || draggedNote.chapterId;
+      if (!projId || !allNotesMap[projId]) return;
+
+      const oldIndex = allNotesMap[projId].findIndex(
+        (n: any) => n.id === active.id,
+      );
+      const newIndex = allNotesMap[projId].findIndex(
+        (n: any) => n.id === over.id,
+      );
+      if (oldIndex === -1 || newIndex === -1) return;
+
+      const newNotes = arrayMove(allNotesMap[projId], oldIndex, newIndex);
+
+      if (vaultPath) {
+        newNotes.forEach((n: any, idx: number) => {
+          n.sort_order = idx;
+          ipcClient.db.saveNote(vaultPath, n);
+        });
+      }
+
+      setAllNotesMap((prev: any) => ({ ...prev, [projId]: newNotes }));
+      return;
+    }
 
     setProjects((items: any[]) => {
       let isChapter = false;

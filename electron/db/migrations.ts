@@ -147,6 +147,27 @@ export const migrations: Migration[] = [
       }
     },
   },
+  {
+    version: 9,
+    name: "cleanup_invalid_activity_logs",
+    up: (db) => {
+      // Delete any activity logs where date is a file path (from previous bug)
+      db.exec(
+        "DELETE FROM activity_logs WHERE date LIKE '/%' OR date LIKE 'C:%'",
+      );
+    },
+  },
+  {
+    version: 10,
+    name: "add_sort_order_to_notes",
+    up: (db) => {
+      const notesSchema = db.pragma("table_info(notes)");
+      const noteCols = Array.isArray(notesSchema) ? notesSchema : [notesSchema];
+      if (!noteCols.some((r) => r.name === "sort_order")) {
+        db.exec("ALTER TABLE notes ADD COLUMN sort_order INTEGER DEFAULT 0");
+      }
+    },
+  },
 ];
 
 export function runMigrations(db: Database.Database) {

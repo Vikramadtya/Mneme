@@ -67,10 +67,6 @@ export const ipcClient = {
     ) => invoke("fs:saveAsset", vaultPath, asset, buffer, projectId),
     copyPdfAsset: (vaultPath: string, sourcePath: string) =>
       invoke("fs:copyPdfAsset", vaultPath, sourcePath),
-    readMkdocsConfig: (vaultPath: string) =>
-      invoke("fs:readMkdocsConfig", vaultPath),
-    saveMkdocsConfig: (vaultPath: string, content: string) =>
-      invoke("fs:saveMkdocsConfig", vaultPath, content),
   },
   git: {
     sync: (vaultPath: string) => invoke("git:sync", vaultPath),
@@ -97,9 +93,8 @@ export const ipcClient = {
     getConfig: () => invoke("app:getConfig"),
     setConfig: (config: any) => invoke("app:setConfig", config),
     selectPdf: () => invoke("app:selectPdf"),
-    toggleLive: (vaultPath: string) => invoke("app:toggleLive", vaultPath),
-    generateGithubAction: (vaultPath: string) =>
-      invoke("app:generateGithubAction", vaultPath),
+    generateGithubAction: (vaultPath: string, enabled: boolean) =>
+      invoke("app:generateGithubAction", vaultPath, enabled),
     openExternal: (url: string) => invoke("app:openExternal", url),
     reportError: (error: any) => invoke("app:reportError", error),
   },

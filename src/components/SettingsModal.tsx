@@ -15,8 +15,6 @@ export function SettingsModal() {
   const isSavingConfig = useVault((s) => s.isSavingConfig);
   const vaultSettings = useVault((s) => s.vaultSettings);
   const setVaultSettings = useVault((s) => s.setVaultSettings);
-  const mkdocsConfig = useVault((s) => s.mkdocsConfig);
-  const setMkdocsConfig = useVault((s) => s.setMkdocsConfig);
   const vaultPath = useVault((s) => s.vaultPath);
   const handleSelectVault = useVault((s) => s.handleSelectVault);
   const settingsOpen = useUI((s) => s.settingsOpen);
@@ -286,7 +284,7 @@ export function SettingsModal() {
             {[
               { id: "general", label: "General", icon: "⚙️" },
               { id: "git", label: "Git & Sync", icon: "🔄" },
-              { id: "mkdocs", label: "MkDocs Site", icon: "📖" },
+
               { id: "ai", label: "AI Assist", icon: "✨" },
               { id: "appearance", label: "Appearance", icon: "🎨" },
               { id: "data", label: "Data & Export", icon: "📦" },
@@ -337,81 +335,6 @@ export function SettingsModal() {
                     >
                       Change Vault
                     </button>
-                  </div>
-                </div>
-
-                <hr className="border-border" />
-
-                <div>
-                  <h3 className="text-base font-bold text-[#1c1c1e] dark:text-white mb-4">
-                    MkDocs Live Preview
-                  </h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="col-span-2">
-                      <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider mb-2">
-                        MkDocs Site Name
-                      </label>
-                      <input
-                        type="text"
-                        value={vaultSettings.mkdocsSiteName || ""}
-                        onChange={(e) =>
-                          setVaultSettings((prev: any) => ({
-                            ...prev,
-                            mkdocsSiteName: e.target.value,
-                          }))
-                        }
-                        className="w-full bg-[#f4f4f5] dark:bg-card border border-border rounded-lg p-2.5 text-sm text-[#1c1c1e] dark:text-white outline-none focus:ring-2 focus:ring-[#007aff]/30 focus:border-[#007aff]"
-                        placeholder="My Knowledge Vault"
-                      />
-                      <p className="text-xs text-gray-400 mt-1">
-                        The title of your published website.
-                      </p>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider mb-2">
-                        Server Port
-                      </label>
-                      <input
-                        type="number"
-                        min="1024"
-                        max="65535"
-                        value={vaultSettings.mkdocsPort || "8000"}
-                        onChange={(e) =>
-                          setVaultSettings((prev: any) => ({
-                            ...prev,
-                            mkdocsPort: e.target.value,
-                          }))
-                        }
-                        className="w-full bg-[#f4f4f5] dark:bg-card border border-border rounded-lg p-2.5 text-sm text-[#1c1c1e] dark:text-white outline-none focus:ring-2 focus:ring-[#007aff]/30 focus:border-[#007aff]"
-                        placeholder="8000"
-                      />
-                      <p className="text-xs text-gray-400 mt-1">
-                        Access at http://127.0.0.1:
-                        <strong>{vaultSettings.mkdocsPort || "8000"}</strong>
-                      </p>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider mb-2">
-                        MkDocs Command
-                      </label>
-                      <input
-                        type="text"
-                        value={
-                          vaultSettings.mkdocsCommand || "python3 -m mkdocs"
-                        }
-                        onChange={(e) =>
-                          setVaultSettings((prev: any) => ({
-                            ...prev,
-                            mkdocsCommand: e.target.value,
-                          }))
-                        }
-                        className="w-full bg-[#f4f4f5] dark:bg-card border border-border rounded-lg p-2.5 text-sm text-[#1c1c1e] dark:text-white outline-none focus:ring-2 focus:ring-[#007aff]/30 font-mono"
-                        placeholder="python3 -m mkdocs"
-                      />
-                      <p className="text-xs text-gray-400 mt-1">
-                        How to invoke mkdocs on this system
-                      </p>
-                    </div>
                   </div>
                 </div>
 
@@ -539,52 +462,6 @@ export function SettingsModal() {
                 <hr className="border-border" />
 
                 <div>
-                  <h3 className="text-base font-bold text-[#1c1c1e] dark:text-white mb-1">
-                    GitHub Pages Deployment
-                  </h3>
-                  <p className="text-xs text-gray-500 mb-4">
-                    Automatically deploy your MkDocs site to GitHub Pages on
-                    every sync. Requires a connected remote URL above.
-                  </p>
-
-                  <div className="flex items-center justify-between p-4 bg-[#f4f4f5] dark:bg-card rounded-xl border border-border">
-                    <div>
-                      <p className="text-sm font-semibold text-[#1c1c1e] dark:text-white">
-                        Enable GitHub Actions Deploy
-                      </p>
-                      <p className="text-xs text-gray-500 mt-0.5">
-                        Generates <code>.github/workflows/mkdocs.yml</code> in
-                        your vault
-                      </p>
-                    </div>
-                    <button
-                      onClick={() =>
-                        setVaultSettings((prev: any) => ({
-                          ...prev,
-                          githubActions: !prev.githubActions,
-                        }))
-                      }
-                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${vaultSettings.githubActions ? "bg-[#007aff]" : "bg-gray-300 dark:bg-gray-600"}`}
-                    >
-                      <span
-                        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${vaultSettings.githubActions ? "translate-x-6" : "translate-x-1"}`}
-                      />
-                    </button>
-                  </div>
-
-                  {vaultSettings.githubActions && (
-                    <div className="mt-3 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl text-xs text-green-700 dark:text-green-400">
-                      ✓ A <code>deploy.yml</code> workflow will be generated in
-                      your vault. Push to{" "}
-                      <strong>{vaultSettings.gitBranch || "main"}</strong> to
-                      trigger deployment to GitHub Pages.
-                    </div>
-                  )}
-                </div>
-
-                <hr className="border-border" />
-
-                <div>
                   <h3 className="text-base font-bold text-[#1c1c1e] dark:text-white mb-4">
                     Author Info
                   </h3>
@@ -650,115 +527,6 @@ export function SettingsModal() {
                       {isSquashing ? "Squashing..." : "Squash History"}
                     </button>
                   </div>
-                </div>
-              </div>
-            )}
-
-            {/* ══ MKDOCS SITE TAB ═══════════════════════════ */}
-            {settingsTab === "mkdocs" && (
-              <div className="space-y-6">
-                <div>
-                  <h3 className="text-base font-bold text-[#1c1c1e] dark:text-white mb-1">
-                    Site Information
-                  </h3>
-                  <p className="text-xs text-gray-500 mb-4">
-                    Configure your MkDocs site metadata. These fields update
-                    your <code>mkdocs.yml</code>.
-                  </p>
-
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider mb-2">
-                          Site Name
-                        </label>
-                        <input
-                          type="text"
-                          value={vaultSettings.mkdocsSiteName || ""}
-                          onChange={(e) =>
-                            setVaultSettings((prev: any) => ({
-                              ...prev,
-                              mkdocsSiteName: e.target.value,
-                            }))
-                          }
-                          className="w-full bg-[#f4f4f5] dark:bg-card border border-border rounded-lg p-2.5 text-sm text-[#1c1c1e] dark:text-white outline-none focus:ring-2 focus:ring-[#007aff]/30"
-                          placeholder="My Knowledge Vault"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider mb-2">
-                          Author Name
-                        </label>
-                        <input
-                          type="text"
-                          value={vaultSettings.mkdocsAuthor || ""}
-                          onChange={(e) =>
-                            setVaultSettings((prev: any) => ({
-                              ...prev,
-                              mkdocsAuthor: e.target.value,
-                            }))
-                          }
-                          className="w-full bg-[#f4f4f5] dark:bg-card border border-border rounded-lg p-2.5 text-sm text-[#1c1c1e] dark:text-white outline-none focus:ring-2 focus:ring-[#007aff]/30"
-                          placeholder="Your Name"
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider mb-2">
-                        Site Description
-                      </label>
-                      <input
-                        type="text"
-                        value={vaultSettings.mkdocsDescription || ""}
-                        onChange={(e) =>
-                          setVaultSettings((prev: any) => ({
-                            ...prev,
-                            mkdocsDescription: e.target.value,
-                          }))
-                        }
-                        className="w-full bg-[#f4f4f5] dark:bg-card border border-border rounded-lg p-2.5 text-sm text-[#1c1c1e] dark:text-white outline-none focus:ring-2 focus:ring-[#007aff]/30"
-                        placeholder="A powerful knowledge base"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider mb-2">
-                        Site URL (for GitHub Pages)
-                      </label>
-                      <input
-                        type="url"
-                        value={vaultSettings.mkdocsSiteUrl || ""}
-                        onChange={(e) =>
-                          setVaultSettings((prev: any) => ({
-                            ...prev,
-                            mkdocsSiteUrl: e.target.value,
-                          }))
-                        }
-                        className="w-full bg-[#f4f4f5] dark:bg-card border border-border rounded-lg p-2.5 text-sm text-[#1c1c1e] dark:text-white outline-none focus:ring-2 focus:ring-[#007aff]/30 font-mono"
-                        placeholder="https://yourname.github.io/your-vault"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <hr className="border-border" />
-
-                <div>
-                  <div className="flex justify-between items-center mb-3">
-                    <h3 className="text-base font-bold text-[#1c1c1e] dark:text-white">
-                      Raw mkdocs.yml Editor
-                    </h3>
-                    <span className="text-xs text-gray-400">Advanced</span>
-                  </div>
-                  <p className="text-xs text-gray-500 mb-3">
-                    Direct YAML editor for full control over all MkDocs
-                    settings.
-                  </p>
-                  <textarea
-                    value={mkdocsConfig}
-                    onChange={(e) => setMkdocsConfig(e.target.value)}
-                    className="w-full h-64 bg-[#f4f4f5] dark:bg-[#1a1a1c] border border-border rounded-lg p-4 text-xs font-mono text-[#3f3f46] dark:text-gray-300 outline-none resize-none leading-relaxed focus:ring-2 focus:ring-[#007aff]/30"
-                    spellCheck={false}
-                  />
                 </div>
               </div>
             )}

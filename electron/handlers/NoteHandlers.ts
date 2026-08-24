@@ -1,11 +1,12 @@
 import { safeStorage, app } from "electron";
 import { typedIpcHandle } from "../typedIpc";
-import log from "electron-log/main";
+
 import { atomicWrite } from "../utils/atomicWrite";
 import fs from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { LRUCache } from "lru-cache";
+import { NoteSchema } from "../validators/models";
 
 const noteContentCache = new LRUCache<string, string>({ max: 100 });
 import {
@@ -61,9 +62,12 @@ export function registerNoteHandlers(ipcMain: any) {
     async (
       _,
       vaultPath: string,
-      note: any,
+      rawNote: any,
       isExplicitCommit: boolean = false,
     ) => {
+      // Validate note with Zod
+      const note = NoteSchema.parse(rawNote);
+
       const homeDir = app.getPath("home");
       if (vaultPath && !vaultPath.startsWith(homeDir)) {
         throw new Error(
@@ -258,18 +262,12 @@ export function registerNoteHandlers(ipcMain: any) {
         let subfolder = "";
         if (projectId) {
           const notePath = await resolveNotePath(vaultPath, "dummy", projectId);
-          const docsPath = path.join(vaultPath, "docs");
+          const docsPath = vaultPath;
           const noteDir = path.dirname(notePath);
           subfolder = path.relative(docsPath, noteDir);
         }
 
-        const assetsPath = path.join(
-          vaultPath,
-          "docs",
-          "assets",
-          "images",
-          subfolder,
-        );
+        const assetsPath = path.join(vaultPath, "assets", "images", subfolder);
         await fs.mkdir(assetsPath, { recursive: true });
 
         // If it looks like an image based on extension, use sharp to convert to webp
@@ -301,7 +299,7 @@ export function registerNoteHandlers(ipcMain: any) {
 
         return { success: true, data: dataPath, url: relativeUrl };
       } catch (error: any) {
-        log.error("fs:saveAsset error:", error);
+        console.error("fs:saveAsset error:", error);
         return { success: false, error: error.message };
       } finally {
         setAppWriting(false);
@@ -314,7 +312,7 @@ export function registerNoteHandlers(ipcMain: any) {
     async (_, vaultPath: string, sourcePath: string) => {
       try {
         if (!vaultPath) throw new Error("Vault path not set");
-        const assetsPath = path.join(vaultPath, "docs", "assets", "books");
+        const assetsPath = path.join(vaultPath, "assets", "books");
         await fs.mkdir(assetsPath, { recursive: true });
 
         const fileName = path.basename(sourcePath);

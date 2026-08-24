@@ -6,7 +6,7 @@ import { useNotes, useUI } from "../application/context";
 
 import { useDebounce } from "use-debounce";
 
-export function CmdKPalette() {
+export function SearchPalette() {
   const allNotesFlat = useNotes((s) => s.allNotesFlat);
   const selectProject = useNotes((s) => s.selectProject);
   const searchOpen = useUI((s) => s.searchOpen);
@@ -63,7 +63,7 @@ export function CmdKPalette() {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search notes, chapters, and tags... (Cmd+K)"
+            placeholder="Search notes, chapters, and tags..."
             className="w-full bg-transparent border-none outline-none text-lg text-[#1c1c1e] dark:text-white"
           />
         </div>

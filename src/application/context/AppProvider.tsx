@@ -63,10 +63,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     ...uiStore,
     // --- Complex handlers from useUIState ---
     ...uiHandlers,
-    // --- Cross-domain handlers wired from vault ---
-    handleToggleLive: vaultState.handleToggleLive,
-    handleOpenLive: vaultState.handleOpenLive,
-    handleSaveSettings: vaultState.handleSaveSettings,
+    // --- Cross-domain handlers wired from vault ---    handleSaveSettings: vaultState.handleSaveSettings,
     // --- Cross-domain handlers wired from notes ---
     toggleFavourite: notesState.toggleFavourite,
     handleUndoDelete: notesState.handleUndoDelete,

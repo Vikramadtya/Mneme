@@ -15,15 +15,37 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
-    exclude: ["better-sqlite3", "sharp"],
+    exclude: [
+      "better-sqlite3",
+      "sharp",
+      "electron-log",
+      "chokidar",
+      "fsevents",
+    ],
   },
   build: {
     rollupOptions: {
-      external: ["better-sqlite3", "simple-git", /^sharp(?:\/.*)?$/],
+      external: [
+        "better-sqlite3",
+        "simple-git",
+        "electron-log",
+        "electron-log/main",
+        "chokidar",
+        "fsevents",
+        /^sharp(?:\/.*)?$/,
+      ],
     },
   },
   ssr: {
-    external: ["better-sqlite3", "simple-git", "sharp"],
+    external: [
+      "better-sqlite3",
+      "simple-git",
+      "sharp",
+      "electron-log",
+      "electron-log/main",
+      "chokidar",
+      "fsevents",
+    ],
   },
   plugins: [
     tailwindcss(),
@@ -38,14 +60,36 @@ export default defineConfig({
         entry: "electron/main.ts",
         vite: {
           ssr: {
-            external: ["better-sqlite3", "simple-git", "sharp"],
+            external: [
+              "better-sqlite3",
+              "simple-git",
+              "sharp",
+              "electron-log",
+              "electron-log/main",
+              "chokidar",
+              "fsevents",
+            ],
           },
           optimizeDeps: {
-            exclude: ["better-sqlite3", "sharp"],
+            exclude: [
+              "better-sqlite3",
+              "sharp",
+              "electron-log",
+              "chokidar",
+              "fsevents",
+            ],
           },
           build: {
             rollupOptions: {
-              external: ["better-sqlite3", "simple-git", /^sharp(?:\/.*)?$/],
+              external: [
+                "better-sqlite3",
+                "simple-git",
+                "electron-log",
+                "electron-log/main",
+                "chokidar",
+                "fsevents",
+                /^sharp(?:\/.*)?$/,
+              ],
             },
           },
         },

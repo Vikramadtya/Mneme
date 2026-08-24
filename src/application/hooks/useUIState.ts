@@ -1,7 +1,11 @@
 import { ipcClient } from "@/api/ipcClient";
 import { useState, useCallback } from "react";
 import type { Note } from "../../domain/models";
+import { produce } from "immer";
+import { nanoid } from "nanoid";
+import { getLocalDateString } from "../../utils/dateUtils";
 import { useUIStore } from "../store/uiStore";
+import { useReviewStore } from "../store/reviewStore";
 
 export function useUIState(
   vaultPath: string | null,
@@ -23,6 +27,7 @@ export function useUIState(
   const [newNoteContent, setNewNoteContent] = useState("");
   const [newNoteTitle, setNewNoteTitle] = useState("");
   const [newNoteTags, setNewNoteTags] = useState("");
+  const [newNoteDate, setNewNoteDate] = useState(getLocalDateString());
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedProjects, setExpandedProjects] = useState<
     Record<string, boolean>
@@ -183,8 +188,7 @@ export function useUIState(
               question: editFlashcardQ,
               answer: editFlashcardA,
               nextReviewDate:
-                arr[idx].flashcard?.nextReviewDate ||
-                new Date().toISOString().split("T")[0],
+                arr[idx].flashcard?.nextReviewDate || getLocalDateString(),
               interval: arr[idx].flashcard?.interval || 0,
               easeFactor: arr[idx].flashcard?.easeFactor || 2.5,
               repetition: arr[idx].flashcard?.repetition || 0,
@@ -193,7 +197,7 @@ export function useUIState(
             delete arr[idx].flashcard;
           }
           fullNoteForIpc = { ...arr[idx], content: contentToSave };
-          arr[idx].content = "";
+          arr[idx].content = contentToSave;
           updatedNote = arr[idx];
           draft[targetProjectId] = arr;
         }
@@ -210,11 +214,10 @@ export function useUIState(
             // Log edit activity
             await ipcClient.db.logActivity(
               vaultPath,
-              new Date().toISOString().split("T")[0],
+              getLocalDateString(),
               "edit",
             );
 
-            const { useReviewStore } = require("../store/reviewStore");
             const logsRes = await ipcClient.db.getActivityLogs(vaultPath);
             useReviewStore.getState().setActivityLogs(logsRes?.data || []);
           })
@@ -294,6 +297,10 @@ export function useUIState(
 
   const startEditing = useCallback(
     async (note: Note) => {
+      // Flush any pending edits for the current note immediately before switching context
+      if (editingNoteId && editingNoteId !== note.id) {
+        saveEdit(true);
+      }
       setEditingNoteId(note.id);
       setEditNoteTitle(note.title);
       setEditFlashcardQ(note.flashcard?.question || "");
@@ -325,7 +332,7 @@ export function useUIState(
         setEditNoteContent("");
       }
     },
-    [vaultPath, setAllNotesMap],
+    [vaultPath, setAllNotesMap, editingNoteId, saveEdit],
   );
 
   const confirmRestore = useCallback(async () => {
@@ -375,6 +382,8 @@ export function useUIState(
     setNewNoteTitle,
     newNoteTags,
     setNewNoteTags,
+    newNoteDate,
+    setNewNoteDate,
     searchQuery,
     setSearchQuery,
     expandedProjects,

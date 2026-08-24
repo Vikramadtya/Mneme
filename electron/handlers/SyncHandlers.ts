@@ -1,6 +1,6 @@
 import { safeStorage, app } from "electron";
 import { typedIpcHandle } from "../typedIpc";
-import log from "electron-log/main";
+
 import { atomicWrite } from "../utils/atomicWrite";
 import fs from "node:fs/promises";
 import { randomUUID } from "node:crypto";
@@ -39,7 +39,7 @@ export function registerSyncHandlers(ipcMain: any) {
     isSyncing = true;
     try {
       if (!vaultPath) throw new Error("Vault path not set");
-      const docsPath = path.join(vaultPath, "docs");
+      const docsPath = vaultPath;
 
       // Ensure docs exists
       if (!(await exists(docsPath))) return { success: true };
@@ -80,6 +80,7 @@ export function registerSyncHandlers(ipcMain: any) {
           if (entry.name.startsWith(".")) continue; // ignore hidden
           const IGNORED_FOLDERS = [
             "assets",
+            "node_modules",
             "javascript",
             "javascripts",
             "js",
@@ -89,6 +90,16 @@ export function registerSyncHandlers(ipcMain: any) {
             "img",
             "overrides",
             "fonts",
+            "dist",
+            "build",
+            "coverage",
+            "venv",
+            ".venv",
+            "env",
+            "out",
+            "target",
+            ".next",
+            ".svelte-kit",
           ];
           if (IGNORED_FOLDERS.includes(entry.name.toLowerCase())) continue; // ignore MkDocs asset folders
 
@@ -161,49 +172,55 @@ export function registerSyncHandlers(ipcMain: any) {
 
             await processFolder(fullPath, proj.id, depth + 1);
           }
+          // Yield to event loop to prevent blocking the main thread during massive folder scans
+          await new Promise((resolve) => setTimeout(resolve, 0));
         }
 
-        // Phase 2: Process files in parallel
-        const filePromises = entries
-          .filter((entry) => entry.isFile() && entry.name.endsWith(".md"))
-          .map(async (entry) => {
-            const fullPath = path.join(dirPath, entry.name);
-            let title = entry.name.slice(0, -3);
+        // Phase 2: Process files sequentially to avoid EMFILE (file descriptor exhaustion)
+        const filesToProcess = entries.filter(
+          (entry) => entry.isFile() && entry.name.endsWith(".md"),
+        );
+        for (const entry of filesToProcess) {
+          const fullPath = path.join(dirPath, entry.name);
+          let title = entry.name.slice(0, -3);
 
-            if (title === "index" && parentId) {
-              const parentProj = dbProjects.find((p: any) => p.id === parentId);
-              if (parentProj) title = parentProj.name;
-            }
+          if (title === "index" && parentId) {
+            const parentProj = dbProjects.find((p: any) => p.id === parentId);
+            if (parentProj) title = parentProj.name;
+          }
 
-            // Find or create note
-            let note = notesMap.get(`${parentId || "null"}_${title}`);
-            if (!note) {
-              note = {
-                id: genId(),
-                project_id: parentId,
-                title: title,
-                date: new Date().toISOString().split("T")[0],
-                time: new Date().toTimeString().substring(0, 5),
-                tags: "[]",
-              };
-              dbOps.push({
-                query:
-                  "INSERT INTO notes (id, project_id, title, date, time, tags) VALUES (?, ?, ?, ?, ?, ?)",
-                params: [
-                  note.id,
-                  note.project_id,
-                  note.title,
-                  note.date,
-                  note.time,
-                  note.tags,
-                ],
-              });
-              dbNotes.push(note);
-              notesMap.set(`${note.project_id || "null"}_${note.title}`, note);
-            }
-            foundNoteIds.add(note.id);
+          // Find or create note
+          let isNewNote = false;
+          let note = notesMap.get(`${parentId || "null"}_${title}`);
+          if (!note) {
+            isNewNote = true;
+            note = {
+              id: genId(),
+              project_id: parentId,
+              title: title,
+              date: new Date().toISOString().split("T")[0],
+              time: new Date().toTimeString().substring(0, 5),
+              tags: "[]",
+            };
+            dbOps.push({
+              query:
+                "INSERT INTO notes (id, project_id, title, date, time, tags) VALUES (?, ?, ?, ?, ?, ?)",
+              params: [
+                note.id,
+                note.project_id,
+                note.title,
+                note.date,
+                note.time,
+                note.tags,
+              ],
+            });
+            dbNotes.push(note);
+            notesMap.set(`${note.project_id || "null"}_${note.title}`, note);
+          }
+          foundNoteIds.add(note.id);
 
-            // FTS5 Indexing
+          // FTS5 Indexing ONLY for new notes during sync to avoid massive freezes
+          if (isNewNote) {
             try {
               const fileContent = await fs.readFile(fullPath, "utf-8");
               dbOps.push({
@@ -214,9 +231,8 @@ export function registerSyncHandlers(ipcMain: any) {
             } catch (e) {
               console.error(`Failed to index FTS5 for ${title}`, e);
             }
-          });
-
-        await Promise.all(filePromises);
+          }
+        }
       };
 
       await processFolder(docsPath, null, 0);

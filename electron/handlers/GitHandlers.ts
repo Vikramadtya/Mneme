@@ -36,6 +36,7 @@ export function registerGitHandlers(ipcMain: any) {
         },
       };
     } catch (e: any) {
+      console.error("GIT STATUS IPC ERROR:", e);
       return { success: false, error: e.message };
     }
   });
@@ -268,7 +269,15 @@ export function registerGitHandlers(ipcMain: any) {
         await git.addConfig("user.email", "app@memoriser.local");
       }
 
-      await git.add(["docs/", "mkdocs.yml"]);
+      try {
+        await git.add(["docs/", "mkdocs.yml"]);
+      } catch (e) {
+        console.warn(
+          "Failed to add docs/ or mkdocs.yml, continuing anyway",
+          e.message,
+        );
+      }
+
       const status = await git.status();
 
       if (status.staged.length > 0) {
@@ -294,7 +303,16 @@ export function registerGitHandlers(ipcMain: any) {
       }
 
       // Only stage docs/ and mkdocs.yml, never .env or secrets
-      await git.add(["docs/", "mkdocs.yml"]);
+
+      try {
+        await git.add(["docs/", "mkdocs.yml"]);
+      } catch (e) {
+        console.warn(
+          "Failed to add docs/ or mkdocs.yml, continuing anyway",
+          e.message,
+        );
+      }
+
       const status = await git.status();
 
       if (status.staged.length > 0) {
@@ -358,7 +376,13 @@ jobs:
       - run: mkdocs gh-deploy --force
 `,
           );
-          await git.add([".github/"]);
+
+          try {
+            await git.add([".github/"]);
+          } catch (e) {
+            console.warn("Failed to add .github/", e.message);
+          }
+
           await git.commit("ci: add mkdocs github actions workflow");
         }
       }

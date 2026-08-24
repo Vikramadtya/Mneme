@@ -1,6 +1,9 @@
+import { SettingsRepository } from "../db/repositories/SettingsRepository";
+import { ProjectRepository } from "../db/repositories/ProjectRepository";
+import { NoteRepository } from "../db/repositories/NoteRepository";
 import { safeStorage, app } from "electron";
 import { typedIpcHandle } from "../typedIpc";
-import log from "electron-log/main";
+
 import { atomicWrite } from "../utils/atomicWrite";
 import fs from "node:fs/promises";
 import { randomUUID } from "node:crypto";
@@ -9,14 +12,11 @@ import { LRUCache } from "lru-cache";
 
 const noteContentCache = new LRUCache<string, string>({ max: 100 });
 import {
-  getDb,
-  runDb,
   sanitize,
   exists,
   resolveNotePath,
   customRequire,
   gitCache,
-  db,
 } from "../ipcHandlers";
 
 const sharp = customRequire("sharp");
@@ -56,7 +56,7 @@ export function registerTrashHandlers(ipcMain: any) {
         if (!(await exists(trashPath)))
           throw new Error("File not found in trash");
 
-        const docsDir = path.join(vaultPath, "docs");
+        const docsDir = vaultPath;
         const originalName = fileName.split("_").slice(1).join("_") || fileName;
         const restorePath = path.join(docsDir, originalName);
 

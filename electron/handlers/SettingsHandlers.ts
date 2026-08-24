@@ -1,6 +1,9 @@
+import { SettingsRepository } from "../db/repositories/SettingsRepository";
+import { ProjectRepository } from "../db/repositories/ProjectRepository";
+import { NoteRepository } from "../db/repositories/NoteRepository";
 import { safeStorage, app } from "electron";
 import { typedIpcHandle } from "../typedIpc";
-import log from "electron-log/main";
+
 import { atomicWrite } from "../utils/atomicWrite";
 import fs from "node:fs/promises";
 import { randomUUID } from "node:crypto";
@@ -9,14 +12,11 @@ import { LRUCache } from "lru-cache";
 
 const noteContentCache = new LRUCache<string, string>({ max: 100 });
 import {
-  getDb,
-  runDb,
   sanitize,
   exists,
   resolveNotePath,
   customRequire,
   gitCache,
-  db,
 } from "../ipcHandlers";
 
 const sharp = customRequire("sharp");
@@ -25,33 +25,27 @@ import { BrowserWindow } from "electron";
 import { store } from "./AppHandlers";
 
 export function registerSettingsHandlers(ipcMain: any) {
-  typedIpcHandle("db:logActivity", async (_, date: string, action: string) => {
-    const id = date + "_" + action;
-    try {
-      const rows = await getDb("SELECT count FROM activity_logs WHERE id = ?", [
-        id,
-      ]);
-      if (rows.length > 0) {
-        await runDb("UPDATE activity_logs SET count = count + 1 WHERE id = ?", [
-          id,
-        ]);
-      } else {
-        await runDb(
-          "INSERT INTO activity_logs (id, date, action, count) VALUES (?, ?, ?, 1)",
-          [id, date, action],
-        );
+  typedIpcHandle(
+    "db:logActivity",
+    async (_, vaultPath: string, date: string, action: string) => {
+      const id = date + "_" + action;
+      try {
+        const row = await SettingsRepository.getActivityLogCount(id);
+        if (row) {
+          await SettingsRepository.incrementActivityLogCount(id);
+        } else {
+          await SettingsRepository.createActivityLog(id, date, action);
+        }
+        return { success: true };
+      } catch (err: any) {
+        return { success: false, error: err.message };
       }
-      return { success: true };
-    } catch (err: any) {
-      return { success: false, error: err.message };
-    }
-  });
+    },
+  );
 
   typedIpcHandle("db:getActivityLogs", async (_) => {
     try {
-      const rows = await getDb(
-        "SELECT date, SUM(count) as count FROM activity_logs GROUP BY date ORDER BY date ASC",
-      );
+      const rows = await SettingsRepository.getActivityLogs();
       return { success: true, data: rows || [] };
     } catch (err: any) {
       return { success: false, error: err.message };
@@ -61,7 +55,7 @@ export function registerSettingsHandlers(ipcMain: any) {
   // Settings CRUD
   typedIpcHandle("db:getSettings", async (_) => {
     try {
-      const rows = await getDb("SELECT key, value FROM settings");
+      const rows = await SettingsRepository.getAllSettings();
       const settings: Record<string, string> = {};
       const encryptedKeys = [
         "gitGithubToken",
@@ -133,7 +127,7 @@ export function registerSettingsHandlers(ipcMain: any) {
     "db:saveSettings",
     async (_, settings: Record<string, string>) => {
       try {
-        await runDb("BEGIN TRANSACTION");
+        await NoteRepository.beginTransaction();
         const encryptedKeys = [
           "gitGithubToken",
           "openAiKey",
@@ -154,10 +148,10 @@ export function registerSettingsHandlers(ipcMain: any) {
             );
           }
         }
-        await runDb("COMMIT");
+        await NoteRepository.commitTransaction();
         return { success: true };
       } catch (err: any) {
-        await runDb("ROLLBACK").catch(() => {});
+        await NoteRepository.rollbackTransaction()(() => {});
         return { success: false, error: err.message };
       }
     },

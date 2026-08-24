@@ -1,7 +1,9 @@
-import path from "node:path";
+import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-Object.assign(globalThis, { __filename, __dirname });
+if (typeof globalThis.__filename === "undefined") {
+  globalThis.__filename = fileURLToPath(import.meta.url);
+}
+if (typeof globalThis.__dirname === "undefined") {
+  globalThis.__dirname = dirname(globalThis.__filename);
+}

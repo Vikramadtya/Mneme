@@ -160,15 +160,18 @@ self.addEventListener("message", async (event: MessageEvent<AITaskRequest>) => {
         const pipe = await PipelineManager.getInstance(model);
 
         const existingContext = request.existingTags?.length
-          ? `Here are some existing tags from the knowledge base: ${request.existingTags.join(", ")}.\n\n`
+          ? `Prefer reusing these existing tags if relevant: ${request.existingTags.slice(0, 40).join(", ")}\n\n`
           : "";
+
+        // Truncate payload to avoid context window explosion for local models
+        const truncatedPayload = request.payload.substring(0, 2500);
 
         const isInstruct = model.includes("Qwen") || model.includes("SmolLM");
 
-        let prompt = `Extract exactly 1 to 3 concise metadata tags (1-2 words each) for the following text. Format the output as a simple comma-separated list. ${existingContext}\n\nText: ${request.payload}`;
+        let prompt = `Extract exactly 1 to 5 concise tags (lowercase, 1-2 words each) for the text. Output ONLY a comma-separated list. No explanations. ${existingContext}\nText: ${truncatedPayload}`;
 
         if (isInstruct) {
-          prompt = `<|im_start|>system\nYou are a precise metadata tagger. Extract exactly 1 to 3 concise tags (1-2 words each) for the provided text. Format the output as a simple comma-separated list with no other text, explanation, or numbering. ${existingContext}If applicable, prefer reusing existing tags over inventing new ones.<|im_end|>\n<|im_start|>user\nText: ${request.payload}\n<|im_end|>\n<|im_start|>assistant\n`;
+          prompt = `<|im_start|>system\nYou are an expert metadata tagger. Extract up to 5 concise tags (lowercase, 1-2 words) for the text. Output ONLY a comma-separated list. No explanations, no numbering, no prefix. ${existingContext}<|im_end|>\n<|im_start|>user\nText: ${truncatedPayload}\n<|im_end|>\n<|im_start|>assistant\n`;
         }
 
         const result = await pipe(prompt, {
@@ -184,7 +187,11 @@ self.addEventListener("message", async (event: MessageEvent<AITaskRequest>) => {
         // 1. split by comma or newline
         // 2. clean up whitespace and bad chars
         // 3. reject any tag longer than 25 chars or containing more than 3 words
-        const tags = rawTags
+        let cleanedTags = rawTags.replace(
+          /^\s*(here are the tags:|tags:|tags\s*\n)/i,
+          "",
+        );
+        const tags = cleanedTags
           .split(/[,|\n]/)
           .map((t: string) =>
             t

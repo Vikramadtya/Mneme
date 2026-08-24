@@ -18,6 +18,10 @@ export function RightSidebar() {
   const activeTab = useUI((s) => s.activeTab);
   const rightSidebarCollapsed = useUI((s) => s.rightSidebarCollapsed);
   const setRightSidebarCollapsed = useUI((s) => s.setRightSidebarCollapsed);
+  const rightSidebarTab = useUI((s: any) => s.rightSidebarTab);
+  const setRightSidebarTab = useUI((s: any) => s.setRightSidebarTab);
+  const activeNoteToc = useUI((s: any) => s.activeNoteToc);
+  const activeTabId = useUI((s: any) => s.activeTabId);
   const dueReviewNotes = useReview((s) => s.dueReviewNotes);
   const setReviewIndex = useReview((s) => s.setReviewIndex);
   const setRevealedCards = useReview((s) => s.setRevealedCards);
@@ -141,7 +145,7 @@ export function RightSidebar() {
       {/* Right Sidebar */}
       {!zenMode && activeTab !== "graph" && (
         <aside
-          className={`${rightSidebarCollapsed ? "w-[60px]" : "w-[320px] resize-x min-w-[200px] max-w-[500px]"} overflow-x-hidden bg-[#ececec] dark:bg-card border-l border-[#d4d4d8] dark:border-border flex flex-col flex-shrink-0 pt-12 pb-6 transition-all duration-300 relative group/rightsidebar`}
+          className={`${rightSidebarCollapsed ? "w-[60px]" : "w-[320px] resize-x min-w-[200px] max-w-[500px]"} overflow-x-hidden bg-[#f5f5f7]/80 dark:bg-[#121212]/80 backdrop-blur-2xl border-l border-[#d4d4d8] dark:border-border flex flex-col flex-shrink-0 pt-12 pb-6 transition-all duration-300 relative group/rightsidebar`}
         >
           <button
             onClick={() => setRightSidebarCollapsed(!rightSidebarCollapsed)}
@@ -173,134 +177,209 @@ export function RightSidebar() {
               />
             </div>
           ) : (
-            <>
-              {/* Calendar */}
-              <div className="px-6 mb-8">
-                <h3 className="text-[11px] font-bold text-[#71717a] dark:text-gray-500 uppercase tracking-wider mb-4">
-                  Calendar
-                </h3>
-                <div className="bg-card rounded-lg border border-border p-4 shadow-sm">
-                  {/* Month navigation */}
-                  <div className="flex items-center justify-between mb-3">
-                    <button
-                      onClick={goToPrevMonth}
-                      className="p-1 rounded-md hover:bg-accent hover:text-accent-foreground text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
-                    >
-                      <ChevronLeft size={14} />
-                    </button>
-                    <span className="text-xs font-bold text-foreground">
-                      {monthLabel}
-                    </span>
-                    <button
-                      onClick={goToNextMonth}
-                      className="p-1 rounded-md hover:bg-accent hover:text-accent-foreground text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
-                    >
-                      <ChevronRight size={14} />
-                    </button>
-                  </div>
-                  {/* Day headers */}
-                  <div className="grid grid-cols-7 gap-1 text-[10px] text-gray-400 mb-1 text-center">
-                    {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
-                      <div key={i}>{d}</div>
-                    ))}
-                  </div>
-                  {/* Day cells */}
-                  <div className="grid grid-cols-7 gap-1 text-xs font-medium">
-                    {calDays}
-                  </div>
-                </div>
-              </div>
-
-              {/* Flashcards */}
-              <div className="px-6 mb-8">
-                <h3 className="text-[11px] font-bold text-[#71717a] dark:text-gray-500 uppercase tracking-wider mb-4">
-                  Flashcards
-                </h3>
-                <div className="bg-card rounded-lg border border-border p-4 text-center shadow-sm">
-                  <NotebookPen
-                    size={24}
-                    className="text-[#eab308] mx-auto mb-2 opacity-80"
-                  />
-                  <p className="text-sm font-medium text-zinc-800 dark:text-gray-200">
-                    {dueReviewNotes.length} Due Today
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1 mb-3">
-                    You have flashcards to review across all your notes.
-                  </p>
+            <div className="flex-1 overflow-y-auto hide-scrollbar flex flex-col">
+              {/* Tab Toggle */}
+              <div className="px-6 mb-4 mt-2 flex-shrink-0">
+                <div className="flex bg-[#d4d4d8]/50 dark:bg-black/20 p-1 rounded-lg">
                   <button
-                    disabled={dueReviewNotes.length === 0}
-                    onClick={() => {
-                      setReviewIndex(0);
-                      setRevealedCards(new Set());
-                      setReviewMode(true);
-                    }}
-                    className="w-full bg-[#007aff] text-white rounded-md py-1.5 text-xs font-medium hover:bg-blue-600 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                    onClick={() => setRightSidebarTab("stats")}
+                    className={`flex-1 text-[11px] font-bold uppercase tracking-wider py-1.5 rounded-md transition-colors ${
+                      rightSidebarTab === "stats" || !rightSidebarTab
+                        ? "bg-white dark:bg-[#27272a] text-zinc-800 dark:text-gray-200 shadow-sm"
+                        : "text-[#71717a] dark:text-gray-500 hover:text-zinc-800 dark:hover:text-gray-300"
+                    }`}
                   >
-                    Start Review
+                    Stats
+                  </button>
+                  <button
+                    onClick={() => setRightSidebarTab("outline")}
+                    className={`flex-1 text-[11px] font-bold uppercase tracking-wider py-1.5 rounded-md transition-colors ${
+                      rightSidebarTab === "outline"
+                        ? "bg-white dark:bg-[#27272a] text-zinc-800 dark:text-gray-200 shadow-sm"
+                        : "text-[#71717a] dark:text-gray-500 hover:text-zinc-800 dark:hover:text-gray-300"
+                    }`}
+                  >
+                    Outline
                   </button>
                 </div>
               </div>
 
-              {/* Statistics */}
-              <div className="px-6 mb-8">
-                <h3 className="text-[11px] font-bold text-[#71717a] dark:text-gray-500 uppercase tracking-wider mb-4">
-                  {contextTitle}
-                </h3>
-                <div className="bg-card rounded-lg border border-border p-4 shadow-sm flex flex-col gap-3">
-                  {contextTitle !== "Note Statistics" && (
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs font-medium text-muted-foreground">
-                        Total Notes
-                      </span>
-                      <span className="text-sm font-bold text-zinc-800 dark:text-gray-200">
-                        {totalNotes}
-                      </span>
+              {rightSidebarTab === "stats" || !rightSidebarTab ? (
+                <>
+                  {/* Calendar */}
+                  <div className="px-6 mb-8">
+                    <h3 className="text-[11px] font-bold text-[#71717a] dark:text-gray-500 uppercase tracking-wider mb-4">
+                      Calendar
+                    </h3>
+                    <div className="bg-card rounded-lg border border-border p-4 shadow-sm">
+                      {/* Month navigation */}
+                      <div className="flex items-center justify-between mb-3">
+                        <button
+                          onClick={goToPrevMonth}
+                          className="p-1 rounded-md hover:bg-accent hover:text-accent-foreground text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+                        >
+                          <ChevronLeft size={14} />
+                        </button>
+                        <span className="text-xs font-bold text-foreground">
+                          {monthLabel}
+                        </span>
+                        <button
+                          onClick={goToNextMonth}
+                          className="p-1 rounded-md hover:bg-accent hover:text-accent-foreground text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+                        >
+                          <ChevronRight size={14} />
+                        </button>
+                      </div>
+                      {/* Day headers */}
+                      <div className="grid grid-cols-7 gap-1 text-[10px] text-gray-400 mb-1 text-center">
+                        {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
+                          <div key={i}>{d}</div>
+                        ))}
+                      </div>
+                      {/* Day cells */}
+                      <div className="grid grid-cols-7 gap-1 text-xs font-medium">
+                        {calDays}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Flashcards */}
+                  <div className="px-6 mb-8">
+                    <h3 className="text-[11px] font-bold text-[#71717a] dark:text-gray-500 uppercase tracking-wider mb-4">
+                      Flashcards
+                    </h3>
+                    <div className="bg-card rounded-lg border border-border p-4 text-center shadow-sm">
+                      <NotebookPen
+                        size={24}
+                        className="text-[#eab308] mx-auto mb-2 opacity-80"
+                      />
+                      <p className="text-sm font-medium text-zinc-800 dark:text-gray-200">
+                        {dueReviewNotes.length} Due Today
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1 mb-3">
+                        You have flashcards to review across all your notes.
+                      </p>
+                      <button
+                        disabled={dueReviewNotes.length === 0}
+                        onClick={() => {
+                          setReviewIndex(0);
+                          setRevealedCards(new Set());
+                          setReviewMode(true);
+                        }}
+                        className="w-full bg-[#007aff] text-white rounded-md py-1.5 text-xs font-medium hover:bg-blue-600 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Start Review
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Statistics */}
+                  <div className="px-6 mb-8">
+                    <h3 className="text-[11px] font-bold text-[#71717a] dark:text-gray-500 uppercase tracking-wider mb-4">
+                      {contextTitle}
+                    </h3>
+                    <div className="bg-card rounded-lg border border-border p-4 shadow-sm flex flex-col gap-3">
+                      {contextTitle !== "Note Statistics" && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs font-medium text-muted-foreground">
+                            Total Notes
+                          </span>
+                          <span className="text-sm font-bold text-zinc-800 dark:text-gray-200">
+                            {totalNotes}
+                          </span>
+                        </div>
+                      )}
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs font-medium text-muted-foreground">
+                          Notes This Month
+                        </span>
+                        <span className="text-sm font-bold text-zinc-800 dark:text-gray-200">
+                          {Object.entries(notesByDate)
+                            .filter(([date]) => {
+                              const [y, m] = date.split("-").map(Number);
+                              return (
+                                y === now.getFullYear() &&
+                                m === now.getMonth() + 1
+                              );
+                            })
+                            .reduce((sum, [, count]) => sum + count, 0)}
+                        </span>
+                      </div>
+                      {contextTitle !== "Note Statistics" && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs font-medium text-muted-foreground">
+                            Flashcards
+                          </span>
+                          <span className="text-sm font-bold text-zinc-800 dark:text-gray-200">
+                            {totalFlashcards}
+                          </span>
+                        </div>
+                      )}
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs font-medium text-muted-foreground">
+                          Due Reviews
+                        </span>
+                        <span className="text-sm font-bold text-zinc-800 dark:text-gray-200">
+                          {contextDueReviews}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs font-medium text-muted-foreground">
+                          Active Days
+                        </span>
+                        <span className="text-sm font-bold text-zinc-800 dark:text-gray-200">
+                          {Object.keys(notesByDate).length}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="px-6 pb-8 flex-1">
+                  <h3 className="text-[11px] font-bold text-[#71717a] dark:text-gray-500 uppercase tracking-wider mb-4">
+                    {activeTabId || focusedNoteId
+                      ? "Table of Contents"
+                      : "No Note Selected"}
+                  </h3>
+
+                  {!(activeTabId || focusedNoteId) ? (
+                    <div className="bg-white/50 dark:bg-card/50 rounded-lg border border-border p-6 shadow-sm flex flex-col items-center justify-center text-center">
+                      <NotebookPen
+                        size={24}
+                        className="text-gray-400 mb-2 opacity-50"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Select a note to view its outline.
+                      </p>
+                    </div>
+                  ) : activeNoteToc && activeNoteToc.length > 0 ? (
+                    <div className="flex flex-col gap-1">
+                      {activeNoteToc.map((item: any, idx: number) => (
+                        <div
+                          key={idx}
+                          className={`text-[13px] py-1 transition-colors hover:text-blue-500 cursor-pointer text-muted-foreground ${item.level === 1 ? "font-bold text-zinc-800 dark:text-gray-200 mt-2 text-[14px]" : ""}`}
+                          style={{ paddingLeft: `${(item.level - 1) * 12}px` }}
+                          onClick={() => {
+                            const el = document.getElementById(item.id);
+                            if (el) el.scrollIntoView({ behavior: "smooth" });
+                          }}
+                        >
+                          <span className="truncate block" title={item.text}>
+                            {item.text}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="bg-white/50 dark:bg-card/50 rounded-lg border border-border p-6 shadow-sm flex flex-col items-center justify-center text-center">
+                      <p className="text-xs text-muted-foreground">
+                        No headings found in this note.
+                      </p>
                     </div>
                   )}
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs font-medium text-muted-foreground">
-                      Notes This Month
-                    </span>
-                    <span className="text-sm font-bold text-zinc-800 dark:text-gray-200">
-                      {Object.entries(notesByDate)
-                        .filter(([date]) => {
-                          const [y, m] = date.split("-").map(Number);
-                          return (
-                            y === now.getFullYear() && m === now.getMonth() + 1
-                          );
-                        })
-                        .reduce((sum, [, count]) => sum + count, 0)}
-                    </span>
-                  </div>
-                  {contextTitle !== "Note Statistics" && (
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs font-medium text-muted-foreground">
-                        Flashcards
-                      </span>
-                      <span className="text-sm font-bold text-zinc-800 dark:text-gray-200">
-                        {totalFlashcards}
-                      </span>
-                    </div>
-                  )}
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs font-medium text-muted-foreground">
-                      Due Reviews
-                    </span>
-                    <span className="text-sm font-bold text-zinc-800 dark:text-gray-200">
-                      {contextDueReviews}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs font-medium text-muted-foreground">
-                      Active Days
-                    </span>
-                    <span className="text-sm font-bold text-zinc-800 dark:text-gray-200">
-                      {Object.keys(notesByDate).length}
-                    </span>
-                  </div>
                 </div>
-              </div>
-            </>
+              )}
+            </div>
           )}
         </aside>
       )}

@@ -52,7 +52,7 @@ export const resolveNotePath = async (
   title: string,
   projectId: string | null,
 ) => {
-  const base = path.join(vaultPath, "docs");
+  const base = vaultPath;
 
   const checkPaths = async (dir: string) => {
     const standardPath = path.join(dir, sanitize(title) + ".md");

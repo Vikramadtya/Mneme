@@ -5,6 +5,7 @@ import {
   useUI,
   useReview,
 } from "../../application/context";
+import { getLocalDateString } from "../../utils/dateUtils";
 
 export function useAppController() {
   const vault = useVault();
@@ -17,10 +18,9 @@ export function useAppController() {
 
   const getFormattedDate = (dateStr: string) => {
     if (!dateStr) return "";
-    const today = new Date().toISOString().split("T")[0];
-    const yesterday = new Date(Date.now() - 86400000)
-      .toISOString()
-      .split("T")[0];
+    const today = getLocalDateString();
+    const yesterdayDate = new Date(Date.now() - 86400000);
+    const yesterday = getLocalDateString(yesterdayDate);
     if (dateStr === today) return "Today";
     if (dateStr === yesterday) return "Yesterday";
     const [year, month, day] = dateStr.split("-").map(Number);

@@ -1,89 +1,56 @@
-import chokidar from "chokidar";
-import { BrowserWindow } from "electron";
-import log from "electron-log/main";
-import path from "path";
+import { app } from "electron";
+import fs from "node:fs";
+import path from "node:path";
+import { getDb } from "./ipcHandlers";
 
-let watcher: chokidar.FSWatcher | null = null;
-let writeLockCount = 0;
-let lockTimeout: NodeJS.Timeout | null = null;
+let watcher: fs.FSWatcher | null = null;
+let syncTimeout: NodeJS.Timeout | null = null;
+let isSyncing = false;
 
-export function acquireWriteLock() {
-  writeLockCount++;
-  if (lockTimeout) clearTimeout(lockTimeout);
-
-  // Auto-release lock after 5 seconds to prevent deadlocks
-  lockTimeout = setTimeout(() => {
-    if (writeLockCount > 0) {
-      log.warn("Write lock timeout reached. Forcibly releasing lock.");
-      writeLockCount = 0;
-    }
-  }, 5000);
-}
-
-export function releaseWriteLock() {
-  if (writeLockCount > 0) {
-    writeLockCount--;
-  }
-  if (writeLockCount === 0 && lockTimeout) {
-    clearTimeout(lockTimeout);
-    lockTimeout = null;
-  }
-}
-
-export function setAppWriting(value: boolean) {
-  if (value) {
-    acquireWriteLock();
-  } else {
-    releaseWriteLock();
-  }
-}
-
-export function isAppWritingActive() {
-  return writeLockCount > 0;
-}
-
-export function startWatcher(vaultPath: string, mainWindow: BrowserWindow) {
+export function setupWatcher(
+  vaultPath: string,
+  mainWindow: Electron.BrowserWindow,
+) {
   if (watcher) {
     watcher.close();
+    watcher = null;
   }
 
-  watcher = chokidar.watch(vaultPath, {
-    ignored: [
-      /(^|[\/\\])\../, // ignore hidden files
-      "**/docs/assets/**", // ignore assets folder
-      "**/.git/**", // ignore git
-      "**/.DS_Store",
-    ],
-    persistent: true,
-    ignoreInitial: true,
-    awaitWriteFinish: {
-      stabilityThreshold: 500,
-      pollInterval: 100,
-    },
-  });
+  if (!vaultPath || !fs.existsSync(vaultPath)) return;
 
-  const notifyChange = (changedPath: string) => {
-    if (isAppWritingActive()) {
-      log.info(`App is writing, ignoring watcher event for ${changedPath}`);
-      return;
-    }
+  try {
+    watcher = fs.watch(
+      vaultPath,
+      { recursive: true },
+      (eventType, filename) => {
+        if (!filename || filename.startsWith(".") || filename.includes(".git"))
+          return;
 
-    // Ignore internal mkdocs building files if they slip through
-    if (changedPath.includes("site") || changedPath.includes("__pycache__"))
-      return;
+        if (syncTimeout) clearTimeout(syncTimeout);
+        syncTimeout = setTimeout(async () => {
+          if (isSyncing) return;
+          isSyncing = true;
 
-    log.info(`External change detected: ${changedPath}. Notifying renderer...`);
-    mainWindow.webContents.send("vault-file-changed");
-  };
+          try {
+            // Tell frontend to refresh
+            mainWindow.webContents.send("vault:changed");
+          } catch (e) {
+            console.error("Watcher sync error:", e);
+          } finally {
+            isSyncing = false;
+          }
+        }, 2000);
+      },
+    );
+    console.log("NATIVE FS.WATCH STARTED ON:", vaultPath);
+  } catch (e) {
+    console.error("FAILED TO START FS.WATCH:", e);
+  }
+}
+export function setAppWriting(isWriting: boolean) {
+  // no-op for now, can implement later if needed
+}
 
-  watcher
-    .on("add", notifyChange)
-    .on("change", notifyChange)
-    .on("unlink", notifyChange)
-    .on("unlinkDir", notifyChange)
-    .on("error", (error) => {
-      log.error(`Watcher error: ${error}`);
-    });
-
-  log.info(`Started file watcher on ${vaultPath}`);
+export function startWatcher() {
+  // no-op, setupWatcher handles it
 }

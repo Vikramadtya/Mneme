@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { X, Folder, BookOpen, Layers } from "lucide-react";
-import type { Project } from "../types";
+import type { Project } from "../domain/models";
 
 interface MoveModalProps {
   itemType: "note" | "chapter" | "book" | "course";
