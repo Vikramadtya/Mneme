@@ -90,6 +90,18 @@ public class CollectionController {
         return collectionRepo.save(mongo).map(this::toDomain);
     }
 
+    @Put("/{id}")
+    public Publisher<VocabularyCollection> updateCollection(@PathVariable String id, @Body Map<String, String> payload, Principal principal) {
+        return Mono.from(collectionRepo.findById(id)).flatMap(mongo -> {
+            if (!mongo.getUserId().equals(principal.getName())) {
+                return Mono.error(new RuntimeException("Unauthorized"));
+            }
+            if (payload.containsKey("name")) mongo.setName(payload.get("name"));
+            if (payload.containsKey("description")) mongo.setDescription(payload.get("description"));
+            return Mono.from(collectionRepo.update(mongo)).map(this::toDomain);
+        });
+    }
+
     @Put("/{id}/words")
     public Publisher<VocabularyCollection> updateCollectionWords(@PathVariable String id, @Body Map<String, List<String>> payload, Principal principal) {
         return Mono.from(collectionRepo.findById(id)).flatMap(mongo -> {
@@ -110,7 +122,7 @@ public class CollectionController {
             if ("Inbox".equalsIgnoreCase(mongo.getName())) {
                 return Mono.error(new RuntimeException("Cannot delete Inbox collection"));
             }
-            return Mono.from(collectionRepo.deleteById(id)).map(count -> null); // Map Long to Void
+            return Mono.from(collectionRepo.deleteById(id)).then(Mono.empty());
         });
     }
 

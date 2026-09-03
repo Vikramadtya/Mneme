@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useCollections, useMyVocabulary, useCreateCollection, useDeleteCollection, useUpdateCollectionWords } from '../vocabulary/api';
+import { useCollections, useMyVocabulary, useCreateCollection, useDeleteCollection, useUpdateCollectionWords, useUpdateCollection } from '../vocabulary/api';
 import { Plus, Edit2, Trash2, X, Check, Layers, BookOpen } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 
@@ -9,25 +9,43 @@ export function CollectionsManager() {
   
   const createCollection = useCreateCollection();
   const deleteCollection = useDeleteCollection();
+  const updateCollection = useUpdateCollection();
   const updateWords = useUpdateCollectionWords();
   
   const navigate = useNavigate();
 
   const [isCreating, setIsCreating] = useState(false);
+  const [editingCollection, setEditingCollection] = useState<any>(null);
   const [newName, setNewName] = useState('');
   const [newDesc, setNewDesc] = useState('');
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [selectedWords, setSelectedWords] = useState<Set<string>>(new Set());
 
+  
+  const openEditCollection = (col: any) => {
+      setEditingCollection(col);
+      setNewName(col.name);
+      setNewDesc(col.description || '');
+      setIsCreating(true);
+  };
+
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newName.trim()) return;
-    createCollection.mutate({ name: newName, description: newDesc });
+    
+    if (editingCollection) {
+        updateCollection.mutate({ id: editingCollection.id, name: newName, description: newDesc });
+    } else {
+        createCollection.mutate({ name: newName, description: newDesc });
+    }
+    
     setNewName('');
     setNewDesc('');
     setIsCreating(false);
+    setEditingCollection(null);
   };
+
 
   const openWordEditor = (collection: any) => {
     setEditingId(collection.id);
@@ -65,7 +83,7 @@ export function CollectionsManager() {
             <Link to="/" className="text-blue-600 hover:underline text-sm font-medium">← Back to Dashboard</Link>
           </div>
           <button 
-            onClick={() => setIsCreating(true)}
+            onClick={() => { setIsCreating(true); setEditingCollection(null); setNewName(''); setNewDesc(''); }}
             className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-medium shadow-sm flex items-center space-x-2 transition-colors"
           >
             <Plus className="w-5 h-5" />
@@ -75,7 +93,7 @@ export function CollectionsManager() {
 
         {isCreating && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mb-8 animate-in slide-in-from-top-4">
-            <h2 className="text-lg font-bold mb-4">Create Collection</h2>
+            <h2 className="text-lg font-bold mb-4">{editingCollection ? "Edit Collection" : "Create Collection"}</h2>
             <form onSubmit={handleCreate} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Name</label>
@@ -98,8 +116,8 @@ export function CollectionsManager() {
                 />
               </div>
               <div className="flex justify-end space-x-3">
-                <button type="button" onClick={() => setIsCreating(false)} className="px-4 py-2 text-slate-600 font-medium hover:bg-slate-100 rounded-lg">Cancel</button>
-                <button type="submit" className="bg-slate-900 text-white px-6 py-2 rounded-lg font-medium">Save Collection</button>
+                <button type="button" onClick={() => { setIsCreating(false); setEditingCollection(null); setNewName(''); setNewDesc(''); }} className="px-4 py-2 text-slate-600 font-medium hover:bg-slate-100 rounded-lg">Cancel</button>
+                <button type="submit" className="bg-slate-900 text-white px-6 py-2 rounded-lg font-medium">{editingCollection ? "Save Changes" : "Save Collection"}</button>
               </div>
             </form>
           </div>
@@ -120,7 +138,10 @@ export function CollectionsManager() {
               <div key={col.id} className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition">
                 <div className="flex justify-between items-start mb-4">
                     <div>
-                        <h3 className="text-xl font-bold text-slate-900">{col.name}</h3>
+                        <h3 className="text-xl font-bold text-slate-900 group-hover:text-blue-600 transition-colors flex items-center space-x-2">
+                            <span>{col.name}</span>
+                            <button onClick={() => openEditCollection(col)} className="text-slate-300 hover:text-blue-500 transition"><Edit2 className="w-4 h-4"/></button>
+                        </h3>
                         {col.description && <p className="text-slate-500 text-sm mt-1">{col.description}</p>}
                     </div>
                     {col.name !== 'Inbox' && (

@@ -84,6 +84,24 @@ export function useUpdateVocabulary() {
   });
 }
 
+
+export function useUpdateCollection() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, name, description }: { id: string; name?: string; description?: string }) => {
+      const payload: any = {};
+      if (name) payload.name = name;
+      if (description !== undefined) payload.description = description;
+      return fetchApi(`/collections/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['collections'] });
+      toast.success('Collection updated!');
+    },
+    onError: () => toast.error('Failed to update collection')
+  });
+}
+
 export function useDeleteVocabulary() {
   const queryClient = useQueryClient();
   return useMutation({
