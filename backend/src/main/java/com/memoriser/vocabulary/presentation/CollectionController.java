@@ -119,9 +119,6 @@ public class CollectionController {
             if (!mongo.getUserId().equals(principal.getName())) {
                 return Mono.error(new RuntimeException("Unauthorized"));
             }
-            if ("Inbox".equalsIgnoreCase(mongo.getName())) {
-                return Mono.error(new RuntimeException("Cannot delete Inbox collection"));
-            }
             return Mono.from(collectionRepo.deleteById(id)).then(Mono.empty());
         });
     }

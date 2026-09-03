@@ -144,9 +144,7 @@ export function CollectionsManager() {
                         </h3>
                         {col.description && <p className="text-slate-500 text-sm mt-1">{col.description}</p>}
                     </div>
-                    {col.name !== 'Inbox' && (
-                        <button onClick={() => deleteCollection.mutate(col.id)} className="text-slate-400 hover:text-red-500 transition"><Trash2 className="w-5 h-5"/></button>
-                    )}
+                    <button onClick={() => deleteCollection.mutate(col.id)} className="text-slate-400 hover:text-red-500 transition"><Trash2 className="w-5 h-5"/></button>
                 </div>
                 
                 <div className="flex items-center space-x-2 text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg w-max mb-6">
