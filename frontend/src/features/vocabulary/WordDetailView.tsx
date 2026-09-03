@@ -3,6 +3,51 @@ import { useVocabularyItem, useUpdateVocabulary } from './api';
 import { Volume2, Info, Map as MapIcon, Link as LinkIcon, Book, ArrowLeft, Loader2 } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
 
+const THEMES = [
+  { // Beach (Original)
+    bg: 'from-[#8ab9ec] to-[#e4c995]',
+    wave1: 'text-white',
+    wave2: 'text-[#eedba6]',
+    text: 'text-[#9b6f25]',
+    subtext: 'text-[#7a5518]',
+  },
+  { // Sunset Peach
+    bg: 'from-[#ff9a9e] to-[#fecfef]',
+    wave1: 'text-white/60',
+    wave2: 'text-[#fad0c4]',
+    text: 'text-[#c0392b]',
+    subtext: 'text-[#c0392b]/80',
+  },
+  { // Midnight Nebula
+    bg: 'from-[#4facfe] to-[#00f2fe]',
+    wave1: 'text-white/20',
+    wave2: 'text-[#4facfe]/50',
+    text: 'text-white',
+    subtext: 'text-blue-50',
+  },
+  { // Mint Forest
+    bg: 'from-[#84fab0] to-[#8fd3f4]',
+    wave1: 'text-white/70',
+    wave2: 'text-[#84fab0]/60',
+    text: 'text-[#1e824c]',
+    subtext: 'text-[#2ecc71]',
+  },
+  { // Royal Purple
+    bg: 'from-[#a18cd1] to-[#fbc2eb]',
+    wave1: 'text-white/40',
+    wave2: 'text-[#a18cd1]/50',
+    text: 'text-[#5b2c6f]',
+    subtext: 'text-[#8e44ad]',
+  },
+  { // Deep Space
+    bg: 'from-[#141e30] to-[#243b55]',
+    wave1: 'text-slate-800/80',
+    wave2: 'text-slate-700/80',
+    text: 'text-yellow-400',
+    subtext: 'text-slate-300',
+  }
+];
+
 export function WordDetailView() {
   const { id } = useParams();
   const { data: word, isLoading } = useVocabularyItem(id as string);
@@ -42,32 +87,36 @@ export function WordDetailView() {
       }
   }
 
+  // Deterministic Theme Selection
+  const hash = word.word.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  const theme = THEMES[hash % THEMES.length];
+
   return (
     <div className="flex flex-col md:flex-row min-h-screen bg-slate-50 font-serif">
       
       {/* Left Pane - Artistic Representation */}
-      <div className="w-full md:w-1/2 relative bg-gradient-to-b from-[#8ab9ec] to-[#e4c995] flex flex-col justify-center items-center p-12 overflow-hidden">
+      <div className={`w-full md:w-1/2 relative bg-gradient-to-b ${theme.bg} flex flex-col justify-center items-center p-12 overflow-hidden transition-colors duration-500`}>
         
-        {/* Artistic Waves Background (Pure CSS approximation) */}
-        <div className="absolute inset-0 opacity-40">
-           <svg viewBox="0 0 1440 320" className="absolute top-1/3 w-full h-auto text-white fill-current"><path d="M0,192L48,197.3C96,203,192,213,288,229.3C384,245,480,267,576,250.7C672,235,768,181,864,181.3C960,181,1056,235,1152,234.7C1248,235,1344,181,1392,154.7L1440,128L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"></path></svg>
-           <svg viewBox="0 0 1440 320" className="absolute top-1/2 w-full h-auto text-[#eedba6] fill-current opacity-80"><path d="M0,96L60,112C120,128,240,160,360,165.3C480,171,600,149,720,133.3C840,117,960,107,1080,117.3C1200,128,1320,160,1380,176L1440,192L1440,320L1380,320C1320,320,1200,320,1080,320C960,320,840,320,720,320C600,320,480,320,360,320C240,320,120,320,60,320L0,320Z"></path></svg>
+        {/* Artistic Waves Background */}
+        <div className="absolute inset-0 opacity-40 mix-blend-overlay">
+           <svg viewBox="0 0 1440 320" className={`absolute top-1/3 w-full h-auto fill-current ${theme.wave1}`}><path d="M0,192L48,197.3C96,203,192,213,288,229.3C384,245,480,267,576,250.7C672,235,768,181,864,181.3C960,181,1056,235,1152,234.7C1248,235,1344,181,1392,154.7L1440,128L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"></path></svg>
+           <svg viewBox="0 0 1440 320" className={`absolute top-1/2 w-full h-auto fill-current opacity-80 ${theme.wave2}`}><path d="M0,96L60,112C120,128,240,160,360,165.3C480,171,600,149,720,133.3C840,117,960,107,1080,117.3C1200,128,1320,160,1380,176L1440,192L1440,320L1380,320C1320,320,1200,320,1080,320C960,320,840,320,720,320C600,320,480,320,360,320C240,320,120,320,60,320L0,320Z"></path></svg>
         </div>
 
-        <Link to="/vocabulary" className="absolute top-6 left-6 text-white hover:text-slate-200 z-10 bg-black/10 p-2 rounded-full backdrop-blur-sm">
+        <Link to="/vocabulary" className="absolute top-6 left-6 text-white hover:text-slate-200 z-10 bg-black/10 p-2 rounded-full backdrop-blur-sm transition-all hover:bg-black/20">
             <ArrowLeft className="w-5 h-5" />
         </Link>
 
-        <div className="relative z-10 text-center text-[#9b6f25] mt-32">
-          <h1 className="text-7xl md:text-8xl lg:text-9xl mb-4 font-bold" style={{ fontFamily: "'Great Vibes', 'Brush Script MT', cursive" }}>
+        <div className={`relative z-10 text-center ${theme.text} mt-32`}>
+          <h1 className="text-7xl md:text-8xl lg:text-9xl mb-4 font-bold drop-shadow-sm" style={{ fontFamily: "'Great Vibes', 'Brush Script MT', cursive" }}>
             {word.word}
           </h1>
-          <p className="text-xl md:text-2xl mt-8">
+          <p className="text-xl md:text-2xl mt-8 opacity-90">
             <strong className="font-sans font-bold">{primaryPos}</strong> {primaryDef}
           </p>
           
           {primaryExample && (
-            <div className="mt-16 text-xl text-[#7a5518] relative">
+            <div className={`mt-16 text-xl ${theme.subtext} relative`}>
               <span className="absolute -top-12 -left-8 text-8xl opacity-10 font-sans">"</span>
               <p>the <strong className="font-bold">{word.word}</strong> {primaryExample.replace(new RegExp(word.word, 'i'), '')}</p>
             </div>
