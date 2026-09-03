@@ -1,50 +1,56 @@
 import { useState } from 'react';
 import { useVocabularyItem, useUpdateVocabulary } from './api';
-import { Volume2, Info, Map as MapIcon, Link as LinkIcon, Book, ArrowLeft, Loader2 } from 'lucide-react';
+import { Volume2, Info, Map as MapIcon, Book, ArrowLeft, Loader2 } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
 
 const THEMES = [
-  { // Beach (Original)
-    bg: 'from-[#8ab9ec] to-[#e4c995]',
-    wave1: 'text-white',
-    wave2: 'text-[#eedba6]',
-    text: 'text-[#9b6f25]',
-    subtext: 'text-[#7a5518]',
+  { // 1. Beach Sand
+    bg: 'from-[#8ab9ec] to-[#e4c995]', wave1: 'text-white', wave2: 'text-[#eedba6]',
+    text: 'text-[#9b6f25]', subtext: 'text-[#7a5518]', font: "'Playfair Display', serif"
   },
-  { // Sunset Peach
-    bg: 'from-[#ff9a9e] to-[#fecfef]',
-    wave1: 'text-white/60',
-    wave2: 'text-[#fad0c4]',
-    text: 'text-[#c0392b]',
-    subtext: 'text-[#c0392b]/80',
+  { // 2. Sunset Peach
+    bg: 'from-[#ff9a9e] to-[#fecfef]', wave1: 'text-white/60', wave2: 'text-[#fad0c4]',
+    text: 'text-[#c0392b]', subtext: 'text-[#c0392b]/80', font: "'Pacifico', cursive"
   },
-  { // Midnight Nebula
-    bg: 'from-[#4facfe] to-[#00f2fe]',
-    wave1: 'text-white/20',
-    wave2: 'text-[#4facfe]/50',
-    text: 'text-white',
-    subtext: 'text-blue-50',
+  { // 3. Midnight Nebula
+    bg: 'from-[#4facfe] to-[#00f2fe]', wave1: 'text-white/20', wave2: 'text-[#4facfe]/50',
+    text: 'text-white', subtext: 'text-blue-50', font: "'Righteous', display"
   },
-  { // Mint Forest
-    bg: 'from-[#84fab0] to-[#8fd3f4]',
-    wave1: 'text-white/70',
-    wave2: 'text-[#84fab0]/60',
-    text: 'text-[#1e824c]',
-    subtext: 'text-[#2ecc71]',
+  { // 4. Mint Forest
+    bg: 'from-[#84fab0] to-[#8fd3f4]', wave1: 'text-white/70', wave2: 'text-[#84fab0]/60',
+    text: 'text-[#1e824c]', subtext: 'text-[#2ecc71]', font: "'Caveat', cursive"
   },
-  { // Royal Purple
-    bg: 'from-[#a18cd1] to-[#fbc2eb]',
-    wave1: 'text-white/40',
-    wave2: 'text-[#a18cd1]/50',
-    text: 'text-[#5b2c6f]',
-    subtext: 'text-[#8e44ad]',
+  { // 5. Royal Purple
+    bg: 'from-[#a18cd1] to-[#fbc2eb]', wave1: 'text-white/40', wave2: 'text-[#a18cd1]/50',
+    text: 'text-[#5b2c6f]', subtext: 'text-[#8e44ad]', font: "'Dancing Script', cursive"
   },
-  { // Deep Space
-    bg: 'from-[#141e30] to-[#243b55]',
-    wave1: 'text-slate-800/80',
-    wave2: 'text-slate-700/80',
-    text: 'text-yellow-400',
-    subtext: 'text-slate-300',
+  { // 6. Deep Space
+    bg: 'from-[#141e30] to-[#243b55]', wave1: 'text-slate-800/80', wave2: 'text-slate-700/80',
+    text: 'text-yellow-400', subtext: 'text-slate-300', font: "'Cinzel', serif"
+  },
+  { // 7. Cherry Blossom
+    bg: 'from-[#ffb199] to-[#ff0844]', wave1: 'text-white/30', wave2: 'text-[#ffb199]/50',
+    text: 'text-white', subtext: 'text-pink-100', font: "'Great Vibes', cursive"
+  },
+  { // 8. Autumn Ember
+    bg: 'from-[#f6d365] to-[#fda085]', wave1: 'text-white/50', wave2: 'text-[#f6d365]/60',
+    text: 'text-[#d35400]', subtext: 'text-[#e67e22]', font: "'Abril Fatface', display"
+  },
+  { // 9. Ocean Depth
+    bg: 'from-[#43e97b] to-[#38f9d7]', wave1: 'text-white/40', wave2: 'text-[#43e97b]/50',
+    text: 'text-[#015249]', subtext: 'text-[#048274]', font: "'Lobster', cursive"
+  },
+  { // 10. Golden Hour
+    bg: 'from-[#fccb90] to-[#d57eeb]', wave1: 'text-white/30', wave2: 'text-[#fccb90]/40',
+    text: 'text-[#5a189a]', subtext: 'text-[#7b2cbf]', font: "'Playfair Display', serif"
+  },
+  { // 11. Cyberpunk
+    bg: 'from-[#f83600] to-[#f9d423]', wave1: 'text-white/20', wave2: 'text-[#f83600]/30',
+    text: 'text-slate-900', subtext: 'text-slate-800', font: "'Bebas Neue', display"
+  },
+  { // 12. Matcha Green
+    bg: 'from-[#c1dfc4] to-[#deecdd]', wave1: 'text-white/80', wave2: 'text-[#c1dfc4]/60',
+    text: 'text-[#3e5f41]', subtext: 'text-[#5a805f]', font: "'Caveat', cursive"
   }
 ];
 
@@ -108,7 +114,7 @@ export function WordDetailView() {
         </Link>
 
         <div className={`relative z-10 text-center ${theme.text} mt-32`}>
-          <h1 className="text-7xl md:text-8xl lg:text-9xl mb-4 font-bold drop-shadow-sm" style={{ fontFamily: "'Great Vibes', 'Brush Script MT', cursive" }}>
+          <h1 className="text-7xl md:text-8xl lg:text-9xl mb-4 font-bold drop-shadow-sm tracking-wide" style={{ fontFamily: theme.font }}>
             {word.word}
           </h1>
           <p className="text-xl md:text-2xl mt-8 opacity-90">
