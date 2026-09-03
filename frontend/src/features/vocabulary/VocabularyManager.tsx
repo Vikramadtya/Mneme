@@ -1,19 +1,22 @@
 import { useState, useMemo } from 'react';
-import { useMyVocabulary, useAddVocabulary, useUpdateVocabulary, useDeleteVocabulary } from './api';
+import { useMyVocabulary, useAddVocabulary, useUpdateVocabulary, useDeleteVocabulary, useCollections } from './api';
 import { fetchApi } from '../../api/client';
-import { Plus, Search, Filter, Edit2, Trash2, X, Wand2, Loader2 } from 'lucide-react';
+import { Plus, Search, Filter, Edit2, Trash2, X, Wand2, Loader2, Layers } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export function VocabularyManager() {
   const { data: words, isLoading } = useMyVocabulary();
+  const { data: collections } = useCollections();
+  
   const addWord = useAddVocabulary();
   const updateWord = useUpdateVocabulary();
   const deleteWord = useDeleteVocabulary();
   
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<'name' | 'date'>('date');
-  const [showAddForm, setShowAddForm] = useState(false);
+  const [collectionFilter, setCollectionFilter] = useState<string>('all');
   
+  const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formWord, setFormWord] = useState('');
   const [formDef, setFormDef] = useState('');
@@ -48,18 +51,14 @@ export function VocabularyManager() {
     setIsFetchingDictionary(true);
     setDictionaryError('');
     try {
-      const data = await fetchApi<any>(`/dictionary/${formWord.trim()}`);
-      
-      if (data.error) {
-         throw new Error(data.error);
+      const data = await fetchApi<any>(`/dictionary/lookup?word=${encodeURIComponent(formWord)}`);
+      if (data) {
+        if (data.definitions && data.definitions.length > 0) setFormDef(data.definitions[0]);
+        if (data.examples && data.examples.length > 0) setFormExample(data.examples[0]);
+        if (data.pronunciation) setFormPronunciation(data.pronunciation);
       }
-      
-      if (data.definition) setFormDef(data.definition);
-      if (data.example) setFormExample(data.example);
-      if (data.pronunciation) setFormPronunciation(data.pronunciation);
-      
-    } catch (err: any) {
-      setDictionaryError(err.message || 'Failed to fetch');
+    } catch (e: any) {
+      setDictionaryError(e.message || 'Dictionary API is temporarily unavailable.');
     } finally {
       setIsFetchingDictionary(false);
     }
@@ -69,24 +68,23 @@ export function VocabularyManager() {
     e.preventDefault();
     if (!formWord.trim()) return;
     
-    const payload = { 
-      word: formWord, 
-      definitions: formDef.trim() ? [formDef] : [],
-      examples: formExample.trim() ? [formExample] : [],
-      pronunciation: formPronunciation 
+    const itemData = {
+      word: formWord,
+      definitions: formDef ? [formDef] : [],
+      examples: formExample ? [formExample] : [],
+      pronunciation: formPronunciation
     };
 
     if (editingId) {
-      updateWord.mutate({ id: editingId, item: payload });
+      updateWord.mutate({ id: editingId, item: itemData });
     } else {
-      addWord.mutate(payload);
+      addWord.mutate(itemData);
     }
-    
     setShowAddForm(false);
   };
 
   const handleDelete = (id: string) => {
-    if (confirm("Are you sure you want to delete this word?")) {
+    if (confirm('Are you sure you want to delete this word?')) {
       deleteWord.mutate(id);
     }
   };
@@ -94,19 +92,30 @@ export function VocabularyManager() {
   const filteredAndSortedWords = useMemo(() => {
     if (!words) return [];
     
-    let result = words.filter(w => 
-      w.word.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      (w.definitions && w.definitions[0]?.toLowerCase().includes(searchTerm.toLowerCase()))
-    );
-    
-    if (sortBy === 'name') {
-      result.sort((a, b) => a.word.localeCompare(b.word));
-    } else {
-      result.sort((a, b) => (b.id || '').localeCompare(a.id || ''));
+    // 1. Filter by Collection
+    let result = words;
+    if (collectionFilter !== 'all') {
+       const selectedCollection = collections?.find(c => c.id === collectionFilter);
+       if (selectedCollection && selectedCollection.wordIds) {
+           const wordIds = new Set(selectedCollection.wordIds);
+           result = result.filter(w => wordIds.has(w.id));
+       } else {
+           result = []; // Collection has no words or doesn't exist
+       }
+    }
+
+    // 2. Filter by Search
+    if (searchTerm) {
+      const lower = searchTerm.toLowerCase();
+      result = result.filter(w => w.word.toLowerCase().includes(lower));
     }
     
-    return result;
-  }, [words, searchTerm, sortBy]);
+    // 3. Sort
+    return result.sort((a, b) => {
+      if (sortBy === 'name') return a.word.localeCompare(b.word);
+      return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+    });
+  }, [words, collections, searchTerm, sortBy, collectionFilter]);
 
   return (
     <div className="min-h-screen bg-slate-50 p-8 font-sans text-slate-800">
@@ -213,17 +222,36 @@ export function VocabularyManager() {
               />
             </div>
             
-            <div className="flex items-center space-x-2 w-full sm:w-auto">
-              <Filter className="w-4 h-4 text-slate-500" />
-              <span className="text-sm text-slate-600 font-medium mr-2">Sort by:</span>
-              <select 
-                value={sortBy}
-                onChange={e => setSortBy(e.target.value as any)}
-                className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="date">Date Added (Newest)</option>
-                <option value="name">Name (A-Z)</option>
-              </select>
+            <div className="flex items-center space-x-4 w-full sm:w-auto">
+              {/* Collection Filter */}
+              {collections && collections.length > 0 && (
+                <div className="flex items-center space-x-2">
+                  <Layers className="w-4 h-4 text-slate-500" />
+                  <span className="text-sm text-slate-600 font-medium hidden sm:inline">Collection:</span>
+                  <select 
+                    value={collectionFilter}
+                    onChange={e => setCollectionFilter(e.target.value)}
+                    className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500 max-w-[150px] truncate"
+                  >
+                    <option value="all">All Words</option>
+                    {collections.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </div>
+              )}
+
+              {/* Sort Filter */}
+              <div className="flex items-center space-x-2">
+                <Filter className="w-4 h-4 text-slate-500" />
+                <span className="text-sm text-slate-600 font-medium hidden sm:inline">Sort:</span>
+                <select 
+                  value={sortBy}
+                  onChange={e => setSortBy(e.target.value as any)}
+                  className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="date">Date Added</option>
+                  <option value="name">Name (A-Z)</option>
+                </select>
+              </div>
             </div>
           </div>
 
@@ -232,27 +260,31 @@ export function VocabularyManager() {
               <div className="p-8 text-center text-slate-500">Loading your vocabulary...</div>
             ) : filteredAndSortedWords.length === 0 ? (
               <div className="p-12 text-center">
-                <p className="text-slate-500 mb-4">No words found.</p>
-                <button onClick={handleOpenAdd} className="text-blue-600 font-medium hover:underline">Add your first word</button>
+                <p className="text-slate-500 mb-4">No words found in this view.</p>
+                <button onClick={handleOpenAdd} className="text-blue-600 font-medium hover:underline">Add a new word</button>
               </div>
             ) : (
               filteredAndSortedWords.map(word => (
-                <div key={word.id} className="p-6 hover:bg-slate-50 transition-colors flex justify-between items-center group">
-                  <div>
-                    <h3 className="text-lg font-bold text-slate-900">
+                <div key={word.id} className="p-6 hover:bg-slate-50 transition-colors flex justify-between items-center group relative">
+                  
+                  {/* Clickable Word Details Link */}
+                  <Link to={`/vocabulary/${word.id}`} className="flex-1 min-w-0 pr-4 outline-none">
+                    <h3 className="text-lg font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
                       {word.word}
-                      {word.pronunciation && <span className="text-sm font-normal text-slate-500 ml-2">{word.pronunciation}</span>}
+                      {word.pronunciation && <span className="text-sm font-normal text-slate-500 ml-2 group-hover:text-slate-500">{word.pronunciation}</span>}
                     </h3>
-                    <p className="text-slate-600 mt-1">{word.definitions?.[0]}</p>
+                    <p className="text-slate-600 mt-1 truncate">{word.definitions?.[0]}</p>
                     {word.examples && word.examples[0] && (
-                      <p className="text-slate-500 text-sm mt-2 italic">"{word.examples[0]}"</p>
+                      <p className="text-slate-500 text-sm mt-2 italic truncate">"{word.examples[0]}"</p>
                     )}
-                  </div>
-                  <div className="flex space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button onClick={() => handleOpenEdit(word)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                  </Link>
+
+                  {/* Actions (Not inside Link) */}
+                  <div className="flex space-x-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                    <button onClick={() => handleOpenEdit(word)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Quick Edit">
                       <Edit2 className="w-5 h-5" />
                     </button>
-                    <button onClick={() => handleDelete(word.id)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                    <button onClick={() => handleDelete(word.id)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
                       <Trash2 className="w-5 h-5" />
                     </button>
                   </div>
