@@ -8,11 +8,11 @@ import io.micronaut.security.rules.SecurityRule;
 import java.util.Collections;
 import java.util.Map;
 
-@Controller("/api/v1/health")
+@Controller
 @Secured(SecurityRule.IS_ANONYMOUS)
 public class HealthController {
 
-    @Get("/")
+    @Get("/api/v1/health")
     public HttpResponse<Map<String, String>> healthCheck() {
         return HttpResponse.ok(Collections.singletonMap("status", "UP"));
     }

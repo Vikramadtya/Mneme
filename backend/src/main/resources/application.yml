@@ -4,9 +4,24 @@ micronaut:
   server:
     cors:
       enabled: true
+      configurations:
+        all:
+          allowed-origins:
+            - "*"
+          allowed-methods:
+            - "*"
+          allowed-headers:
+            - "*"
   security:
     enabled: true
     authentication: bearer
+    intercept-url-map:
+      - pattern: /api/v1/health**
+        access:
+          - isAnonymous()
+      - pattern: /api/v1/auth/**
+        access:
+          - isAnonymous()
     token:
       jwt:
         signatures:

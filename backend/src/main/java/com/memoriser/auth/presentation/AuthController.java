@@ -36,10 +36,10 @@ public class AuthController {
     }
 
     @Post("/login")
-    public Mono<MutableHttpResponse<Object>> login(@Body Map<String, String> payload) {
+    public Mono<? extends HttpResponse<?>> login(@Body Map<String, String> payload) {
         String accessTokenString = payload.get("token");
         if (accessTokenString == null || accessTokenString.isEmpty()) {
-            return Mono.just(HttpResponse.badRequest("Missing token"));
+            return Mono.just(HttpResponse.badRequest(Collections.singletonMap("error", "Missing token")));
         }
 
         try {
@@ -49,7 +49,7 @@ public class AuthController {
                         String subject = (String) userInfo.get("sub");
 
                         if (subject == null) {
-                            return HttpResponse.<Object>unauthorized();
+                            return HttpResponse.<Object>unauthorized().body(Collections.singletonMap("error", "Google did not return a subject ID"));
                         }
 
                         // Internal UUID is just the Google Sub for now
@@ -64,17 +64,17 @@ public class AuthController {
                             response.put("access_token", accessToken.get());
                             return HttpResponse.<Object>ok(response);
                         } else {
-                            return HttpResponse.<Object>serverError("Failed to generate JWT");
+                            return HttpResponse.<Object>serverError(Collections.singletonMap("error", "Failed to generate JWT internally"));
                         }
                     })
                     .onErrorResume(e -> {
                         LOG.error("Failed to fetch Google user info", e);
-                        return Mono.just(HttpResponse.<Object>unauthorized());
+                        return Mono.just(HttpResponse.<Object>unauthorized().body(Collections.singletonMap("error", "Failed to fetch Google user info: " + e.getMessage())));
                     });
 
         } catch (Exception e) {
             LOG.error("Exception during login", e);
-            return Mono.just(HttpResponse.<Object>unauthorized());
+            return Mono.just(HttpResponse.<Object>unauthorized().body(Collections.singletonMap("error", "Exception during login: " + e.getMessage())));
         }
     }
 }
