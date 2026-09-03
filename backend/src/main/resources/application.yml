@@ -1,0 +1,11 @@
+micronaut:
+  application:
+    name: backend
+  server:
+    cors:
+      enabled: true
+  security:
+    enabled: true
+
+mongodb:
+  uri: ${MONGO_URI:`mongodb://localhost:27017/memoriser_v3`}

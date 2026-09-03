@@ -1,0 +1,6 @@
+applicationType: default
+defaultPackage: com.memoriser
+testFramework: junit
+sourceLanguage: java
+buildTool: gradle
+features: [app-name, gradle, http-client-test, java, java-application, junit, logback, micronaut-aot, micronaut-build, micronaut-configuration-validation-gradle-plugin, micronaut-http-validation, mongo-reactive, netty-server, readme, serialization-jackson, shade, static-resources, test-resources, validation, yaml, yaml-build]
