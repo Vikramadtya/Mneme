@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { useCollections, useCreateCollection, useDeleteCollection, useUpdateCollectionWords, useMyVocabulary } from '../vocabulary/api';
-import { Link } from 'react-router-dom';
-import { Plus, Trash2, Edit2, Check, X, Layers, BookOpen } from 'lucide-react';
+import { useCollections, useMyVocabulary, useCreateCollection, useDeleteCollection, useUpdateCollectionWords } from '../vocabulary/api';
+import { Plus, Edit2, Trash2, X, Check, Layers, BookOpen } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
 
 export function CollectionsManager() {
   const { data: collections, isLoading } = useCollections();
@@ -10,6 +10,8 @@ export function CollectionsManager() {
   const createCollection = useCreateCollection();
   const deleteCollection = useDeleteCollection();
   const updateWords = useUpdateCollectionWords();
+  
+  const navigate = useNavigate();
 
   const [isCreating, setIsCreating] = useState(false);
   const [newName, setNewName] = useState('');
@@ -44,6 +46,10 @@ export function CollectionsManager() {
       updateWords.mutate({ id: editingId, wordIds: Array.from(selectedWords) });
       setEditingId(null);
     }
+  };
+  
+  const handleAddWordToCollection = (collectionId: string) => {
+      navigate(`/vocabulary?addWord=true&collectionId=${collectionId}`);
   };
 
   return (
@@ -113,7 +119,9 @@ export function CollectionsManager() {
                         <h3 className="text-xl font-bold text-slate-900">{col.name}</h3>
                         {col.description && <p className="text-slate-500 text-sm mt-1">{col.description}</p>}
                     </div>
-                    <button onClick={() => deleteCollection.mutate(col.id)} className="text-slate-400 hover:text-red-500 transition"><Trash2 className="w-5 h-5"/></button>
+                    {col.name !== 'Inbox' && (
+                        <button onClick={() => deleteCollection.mutate(col.id)} className="text-slate-400 hover:text-red-500 transition"><Trash2 className="w-5 h-5"/></button>
+                    )}
                 </div>
                 
                 <div className="flex items-center space-x-2 text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg w-max mb-6">
@@ -121,24 +129,33 @@ export function CollectionsManager() {
                     <span className="text-sm font-bold">{col.wordIds?.length || 0} Words</span>
                 </div>
 
-                <button 
-                  onClick={() => openWordEditor(col)}
-                  className="w-full border border-slate-300 text-slate-700 font-medium py-2 rounded-xl hover:bg-slate-50 transition flex items-center justify-center space-x-2"
-                >
-                  <Edit2 className="w-4 h-4" />
-                  <span>Manage Words</span>
-                </button>
+                <div className="flex flex-col sm:flex-row gap-3">
+                    <button 
+                      onClick={() => handleAddWordToCollection(col.id)}
+                      className="flex-1 bg-slate-900 text-white font-medium py-2 rounded-xl hover:bg-slate-800 transition flex items-center justify-center space-x-2"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Add Word</span>
+                    </button>
+                    <button 
+                      onClick={() => openWordEditor(col)}
+                      className="flex-1 border border-slate-300 text-slate-700 font-medium py-2 rounded-xl hover:bg-slate-50 transition flex items-center justify-center space-x-2"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                      <span>Bulk Move</span>
+                    </button>
+                </div>
               </div>
             ))}
           </div>
         )}
 
-        {/* Word Editor Modal */}
+        {/* Word Editor Modal (Bulk Assign) */}
         {editingId && (
           <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <div className="bg-white rounded-3xl w-full max-w-2xl max-h-[80vh] flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95">
               <div className="p-6 border-b border-slate-100 flex justify-between items-center">
-                <h2 className="text-xl font-bold">Assign Words to Collection</h2>
+                <h2 className="text-xl font-bold">Bulk Assign Words to Collection</h2>
                 <button onClick={() => setEditingId(null)} className="text-slate-400 hover:text-slate-600"><X className="w-6 h-6"/></button>
               </div>
               

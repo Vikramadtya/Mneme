@@ -1,8 +1,8 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useMyVocabulary, useAddVocabulary, useUpdateVocabulary, useDeleteVocabulary, useCollections } from './api';
 import { fetchApi } from '../../api/client';
 import { Plus, Search, Filter, Edit2, Trash2, X, Wand2, Loader2, Layers } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 
 export function VocabularyManager() {
   const { data: words, isLoading } = useMyVocabulary();
@@ -12,26 +12,53 @@ export function VocabularyManager() {
   const updateWord = useUpdateVocabulary();
   const deleteWord = useDeleteVocabulary();
   
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<'name' | 'date'>('date');
   const [collectionFilter, setCollectionFilter] = useState<string>('all');
   
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  
   const [formWord, setFormWord] = useState('');
   const [formDef, setFormDef] = useState('');
   const [formExample, setFormExample] = useState('');
   const [formPronunciation, setFormPronunciation] = useState('');
+  const [formCollectionId, setFormCollectionId] = useState<string>('');
   
   const [isFetchingDictionary, setIsFetchingDictionary] = useState(false);
   const [dictionaryError, setDictionaryError] = useState('');
 
-  const handleOpenAdd = () => {
+  // Handle URL triggers (e.g. clicking "Add Word" from Collections page)
+  useEffect(() => {
+      if (searchParams.get('addWord') === 'true' && collections && !showAddForm) {
+          handleOpenAdd(searchParams.get('collectionId') || '');
+          // Remove from URL so refreshing doesn't keep opening it
+          navigate('/vocabulary', { replace: true });
+      }
+  }, [searchParams, collections]);
+
+  const handleOpenAdd = (overrideCollectionId?: string) => {
     setEditingId(null);
     setFormWord('');
     setFormDef('');
     setFormExample('');
     setFormPronunciation('');
+    
+    // Default logic
+    let defaultColId = '';
+    if (overrideCollectionId && typeof overrideCollectionId === 'string') {
+        defaultColId = overrideCollectionId;
+    } else if (collectionFilter !== 'all') {
+        defaultColId = collectionFilter;
+    } else if (collections && collections.length > 0) {
+        const inbox = collections.find(c => c.name === 'Inbox');
+        defaultColId = inbox ? inbox.id : collections[0].id;
+    }
+    setFormCollectionId(defaultColId);
+
     setDictionaryError('');
     setShowAddForm(true);
   };
@@ -42,6 +69,15 @@ export function VocabularyManager() {
     setFormDef(word.definitions?.[0] || '');
     setFormExample(word.examples?.[0] || '');
     setFormPronunciation(word.pronunciation || '');
+    
+    // Find which collection this word belongs to
+    let currentColId = '';
+    if (collections) {
+        const col = collections.find(c => c.wordIds && c.wordIds.includes(word.id));
+        if (col) currentColId = col.id;
+    }
+    setFormCollectionId(currentColId);
+    
     setDictionaryError('');
     setShowAddForm(true);
   };
@@ -76,9 +112,9 @@ export function VocabularyManager() {
     };
 
     if (editingId) {
-      updateWord.mutate({ id: editingId, item: itemData });
+      updateWord.mutate({ id: editingId, item: itemData, collectionId: formCollectionId });
     } else {
-      addWord.mutate(itemData);
+      addWord.mutate({ item: itemData, collectionId: formCollectionId });
     }
     setShowAddForm(false);
   };
@@ -126,7 +162,7 @@ export function VocabularyManager() {
             <Link to="/" className="text-blue-600 hover:underline text-sm font-medium">← Back to Dashboard</Link>
           </div>
           <button 
-            onClick={handleOpenAdd}
+            onClick={() => handleOpenAdd()}
             className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-medium shadow-sm flex items-center space-x-2 transition-colors"
           >
             <Plus className="w-5 h-5" />
@@ -137,32 +173,48 @@ export function VocabularyManager() {
         {showAddForm && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mb-8 animate-in slide-in-from-top-4">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-bold">{editingId ? 'Edit Word' : 'Add New Word'}</h2>
+              <h2 className="text-lg font-bold">{editingId ? 'Edit Word & Move Collection' : 'Add New Word'}</h2>
               <button onClick={() => setShowAddForm(false)} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5"/></button>
             </div>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Word</label>
-                <div className="flex space-x-2">
-                  <input 
-                    type="text" 
-                    value={formWord}
-                    onChange={e => setFormWord(e.target.value)}
-                    className="flex-1 border border-slate-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
-                    placeholder="e.g. Ubiquitous"
-                    required
-                  />
-                  <button 
-                    type="button"
-                    onClick={handleFetchDictionary}
-                    disabled={isFetchingDictionary || !formWord.trim()}
-                    className="flex items-center space-x-2 bg-indigo-50 text-indigo-600 px-4 py-2 rounded-lg font-medium hover:bg-indigo-100 disabled:opacity-50 transition-colors border border-indigo-100"
-                  >
-                    {isFetchingDictionary ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
-                    <span>Auto-fill</span>
-                  </button>
-                </div>
-                {dictionaryError && <p className="text-red-500 text-xs mt-1">{dictionaryError}</p>}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Word</label>
+                    <div className="flex space-x-2">
+                      <input 
+                        type="text" 
+                        value={formWord}
+                        onChange={e => setFormWord(e.target.value)}
+                        className="flex-1 border border-slate-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
+                        placeholder="e.g. Ubiquitous"
+                        required
+                      />
+                      <button 
+                        type="button"
+                        onClick={handleFetchDictionary}
+                        disabled={isFetchingDictionary || !formWord.trim()}
+                        className="flex items-center space-x-2 bg-indigo-50 text-indigo-600 px-4 py-2 rounded-lg font-medium hover:bg-indigo-100 disabled:opacity-50 transition-colors border border-indigo-100"
+                      >
+                        {isFetchingDictionary ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
+                        <span className="hidden sm:inline">Auto-fill</span>
+                      </button>
+                    </div>
+                    {dictionaryError && <p className="text-red-500 text-xs mt-1">{dictionaryError}</p>}
+                  </div>
+                  <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Assign to Collection</label>
+                      <select 
+                          value={formCollectionId}
+                          onChange={e => setFormCollectionId(e.target.value)}
+                          className="w-full border border-slate-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                          required
+                      >
+                          <option value="" disabled>Select a collection...</option>
+                          {collections?.map(c => (
+                              <option key={c.id} value={c.id}>{c.name}</option>
+                          ))}
+                      </select>
+                  </div>
               </div>
 
               <div>
@@ -202,7 +254,7 @@ export function VocabularyManager() {
               <div className="flex justify-end space-x-3 pt-4 border-t border-slate-100">
                 <button type="button" onClick={() => setShowAddForm(false)} className="px-4 py-2 text-slate-600 font-medium hover:bg-slate-100 rounded-lg transition-colors">Cancel</button>
                 <button type="submit" disabled={addWord.isPending || updateWord.isPending} className="bg-slate-900 text-white px-6 py-2 rounded-lg font-medium hover:bg-slate-800 disabled:opacity-50 transition-colors shadow-sm">
-                  {editingId ? 'Update Word' : 'Save Word'}
+                  {editingId ? 'Save Changes' : 'Save Word'}
                 </button>
               </div>
             </form>
@@ -233,7 +285,7 @@ export function VocabularyManager() {
                     onChange={e => setCollectionFilter(e.target.value)}
                     className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500 max-w-[150px] truncate"
                   >
-                    <option value="all">All Words</option>
+                    <option value="all">Global (All Words)</option>
                     {collections.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </select>
                 </div>
@@ -261,35 +313,46 @@ export function VocabularyManager() {
             ) : filteredAndSortedWords.length === 0 ? (
               <div className="p-12 text-center">
                 <p className="text-slate-500 mb-4">No words found in this view.</p>
-                <button onClick={handleOpenAdd} className="text-blue-600 font-medium hover:underline">Add a new word</button>
+                <button onClick={() => handleOpenAdd()} className="text-blue-600 font-medium hover:underline">Add a new word</button>
               </div>
             ) : (
-              filteredAndSortedWords.map(word => (
-                <div key={word.id} className="p-6 hover:bg-slate-50 transition-colors flex justify-between items-center group relative">
-                  
-                  {/* Clickable Word Details Link */}
-                  <Link to={`/vocabulary/${word.id}`} className="flex-1 min-w-0 pr-4 outline-none">
-                    <h3 className="text-lg font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
-                      {word.word}
-                      {word.pronunciation && <span className="text-sm font-normal text-slate-500 ml-2 group-hover:text-slate-500">{word.pronunciation}</span>}
-                    </h3>
-                    <p className="text-slate-600 mt-1 truncate">{word.definitions?.[0]}</p>
-                    {word.examples && word.examples[0] && (
-                      <p className="text-slate-500 text-sm mt-2 italic truncate">"{word.examples[0]}"</p>
-                    )}
-                  </Link>
+              filteredAndSortedWords.map(word => {
+                // Find collection name for display
+                const col = collections?.find(c => c.wordIds && c.wordIds.includes(word.id));
+                return (
+                  <div key={word.id} className="p-6 hover:bg-slate-50 transition-colors flex justify-between items-center group relative">
+                    
+                    {/* Clickable Word Details Link */}
+                    <Link to={`/vocabulary/${word.id}`} className="flex-1 min-w-0 pr-4 outline-none">
+                      <div className="flex items-center space-x-3 mb-1">
+                          <h3 className="text-lg font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
+                            {word.word}
+                          </h3>
+                          {col && (
+                             <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md">
+                                {col.name}
+                             </span>
+                          )}
+                          {word.pronunciation && <span className="text-sm font-normal text-slate-500">{word.pronunciation}</span>}
+                      </div>
+                      <p className="text-slate-600 truncate">{word.definitions?.[0]}</p>
+                      {word.examples && word.examples[0] && (
+                        <p className="text-slate-500 text-sm mt-1 italic truncate">"{word.examples[0]}"</p>
+                      )}
+                    </Link>
 
-                  {/* Actions (Not inside Link) */}
-                  <div className="flex space-x-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                    <button onClick={() => handleOpenEdit(word)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Quick Edit">
-                      <Edit2 className="w-5 h-5" />
-                    </button>
-                    <button onClick={() => handleDelete(word.id)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
-                      <Trash2 className="w-5 h-5" />
-                    </button>
+                    {/* Actions (Not inside Link) */}
+                    <div className="flex space-x-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                      <button onClick={() => handleOpenEdit(word)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Quick Edit (Move Collection)">
+                        <Edit2 className="w-5 h-5" />
+                      </button>
+                      <button onClick={() => handleDelete(word.id)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
+                        <Trash2 className="w-5 h-5" />
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>

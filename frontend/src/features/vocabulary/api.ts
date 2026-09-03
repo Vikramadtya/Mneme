@@ -48,19 +48,30 @@ export function useVocabularyItem(id: string) {
 export function useAddVocabulary() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (item: Partial<VocabularyItem>) => fetchApi('/vocabulary', { method: 'POST', body: JSON.stringify(item) }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['vocabulary'] })
+    mutationFn: ({ item, collectionId }: { item: Partial<VocabularyItem>, collectionId?: string }) => {
+      const url = collectionId ? `/vocabulary?collectionId=${collectionId}` : '/vocabulary';
+      return fetchApi(url, { method: 'POST', body: JSON.stringify(item) });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['vocabulary'] });
+      queryClient.invalidateQueries({ queryKey: ['collections'] });
+    }
   });
 }
 
 export function useUpdateVocabulary() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, item }: { id: string; item: Partial<VocabularyItem> }) => 
-      fetchApi(`/vocabulary/${id}`, { method: 'PUT', body: JSON.stringify(item) }),
+    mutationFn: ({ id, item, collectionId }: { id: string; item: Partial<VocabularyItem>; collectionId?: string }) => {
+      const url = collectionId ? `/vocabulary/${id}?collectionId=${collectionId}` : `/vocabulary/${id}`;
+      return fetchApi(url, { method: 'PUT', body: JSON.stringify(item) });
+    },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['vocabulary'] });
       queryClient.invalidateQueries({ queryKey: ['vocabulary', variables.id] });
+      if (variables.collectionId) {
+         queryClient.invalidateQueries({ queryKey: ['collections'] });
+      }
     }
   });
 }
@@ -69,7 +80,10 @@ export function useDeleteVocabulary() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => fetchApi(`/vocabulary/${id}`, { method: 'DELETE' }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['vocabulary'] })
+    onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ['vocabulary'] });
+        queryClient.invalidateQueries({ queryKey: ['collections'] });
+    }
   });
 }
 
