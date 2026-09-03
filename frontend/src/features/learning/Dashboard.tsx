@@ -30,6 +30,10 @@ export function Dashboard() {
         
         <header className="mb-12 flex justify-between items-end">
           <div>
+            <div className="flex items-center space-x-3 mb-6">
+               <img src="/brain-svgrepo-com.svg" alt="Memoriser Logo" className="w-10 h-10" />
+               <span className="font-extrabold text-2xl tracking-tight text-slate-800">Memoriser</span>
+            </div>
             <h1 className="text-4xl font-extrabold tracking-tight text-slate-900">
               Good morning.
             </h1>

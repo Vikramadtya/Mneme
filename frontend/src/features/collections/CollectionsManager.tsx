@@ -57,6 +57,10 @@ export function CollectionsManager() {
       <div className="max-w-4xl mx-auto">
         <header className="flex justify-between items-center mb-8">
           <div>
+            <div className="flex items-center space-x-2 mb-2">
+               <img src="/brain-svgrepo-com.svg" alt="Memoriser Logo" className="w-6 h-6" />
+               <span className="font-extrabold text-sm tracking-tight text-slate-800">Memoriser</span>
+            </div>
             <h1 className="text-3xl font-extrabold text-slate-900 mb-2">My Collections</h1>
             <Link to="/" className="text-blue-600 hover:underline text-sm font-medium">← Back to Dashboard</Link>
           </div>
