@@ -25,13 +25,20 @@ export function LandingPage() {
                   localStorage.setItem('access_token', data.access_token);
                   window.location.reload();
               } else {
-                  console.error('Failed to login with backend');
+                  const errData = await res.json().catch(() => ({}));
+                  const errorMsg = errData.error || 'Failed to login with backend';
+                  console.error(errorMsg);
+                  alert(`Login Error: ${errorMsg}`);
               }
-          } catch (e) {
+          } catch (e: any) {
               console.error('Login error', e);
+              alert(`Network Error: ${e.message}`);
           }
       },
-      onError: error => console.error('Google Login Error:', error)
+      onError: error => {
+          console.error('Google Login Error:', error);
+          alert('Google Login popup was closed or failed.');
+      }
   });
 
   return (
