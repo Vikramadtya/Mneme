@@ -57,6 +57,12 @@ export function Dashboard() {
                  <Layers className="w-4 h-4"/> <span>Collections</span>
              </Link>
              <Link to="/vocabulary" className="text-sm font-semibold text-blue-600 bg-blue-50 px-4 py-2 rounded-xl hover:bg-blue-100 transition-colors">Vocabulary</Link>
+             <button 
+               onClick={() => { localStorage.removeItem('isAuthenticated'); window.location.reload(); }}
+               className="text-sm font-semibold text-slate-500 hover:text-slate-800 transition-colors ml-4"
+             >
+               Sign Out
+             </button>
           </div>
         </header>
 

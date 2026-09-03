@@ -4,6 +4,8 @@ import { FlashcardSession } from '../../features/learning/FlashcardSession'
 import { VocabularyManager } from '../../features/vocabulary/VocabularyManager'
 import { WordDetailView } from '../../features/vocabulary/WordDetailView'
 import { CollectionsManager } from '../../features/collections/CollectionsManager'
+import { LandingPage } from '../../features/landing/LandingPage'
+import { useState, useEffect } from 'react'
 
 const router = createBrowserRouter([
   {
@@ -29,5 +31,21 @@ const router = createBrowserRouter([
 ])
 
 export function AppRouter() {
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+      // Mock auth check
+      const authState = localStorage.getItem('isAuthenticated');
+      setIsAuthenticated(authState === 'true');
+      setIsLoading(false);
+  }, []);
+
+  if (isLoading) return null;
+
+  if (!isAuthenticated) {
+      return <LandingPage />
+  }
+
   return <RouterProvider router={router} />
 }
