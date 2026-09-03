@@ -3,21 +3,7 @@ micronaut:
     name: backend
   server:
     cors:
-      enabled: true
-      configurations:
-        all:
-          allowed-origins:
-            - "^http://localhost:5173$"
-            - "^https://.*\\.vercel\\.app$"
-          allowed-methods:
-            - GET
-            - POST
-            - PUT
-            - DELETE
-            - OPTIONS
-          allowed-headers:
-            - Authorization
-            - Content-Type
+      enabled: false
   security:
     enabled: true
     authentication: bearer
