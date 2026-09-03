@@ -2,6 +2,7 @@ import { Sparkles, BookOpen, Repeat, Layers, ChevronRight } from 'lucide-react';
 import { useGoogleLogin } from '@react-oauth/google';
 import { API_BASE_URL } from '../../api/client';
 import { useEffect } from 'react';
+import toast from 'react-hot-toast';
 
 export function LandingPage() {
 
@@ -12,6 +13,7 @@ export function LandingPage() {
     
   const handleLogin = useGoogleLogin({
       onSuccess: async (tokenResponse) => {
+          const loadingToast = toast.loading('Signing in...');
           try {
               const res = await fetch(`${API_BASE_URL}/auth/login`, {
                   method: 'POST',
@@ -23,21 +25,22 @@ export function LandingPage() {
                   const data = await res.json();
                   localStorage.setItem('isAuthenticated', 'true');
                   localStorage.setItem('access_token', data.access_token);
+                  toast.success('Successfully logged in!', { id: loadingToast });
                   window.location.reload();
               } else {
                   const errData = await res.json().catch(() => ({}));
                   const errorMsg = errData.error || 'Failed to login with backend';
                   console.error(errorMsg);
-                  alert(`Login Error: ${errorMsg}`);
+                  toast.error(`Login Error: ${errorMsg}`, { id: loadingToast });
               }
           } catch (e: any) {
               console.error('Login error', e);
-              alert(`Network Error: ${e.message}`);
+              toast.error(`Network Error: ${e.message}`, { id: loadingToast });
           }
       },
       onError: error => {
           console.error('Google Login Error:', error);
-          alert('Google Login popup was closed or failed.');
+          toast.error('Google Login popup was closed or failed.');
       }
   });
 

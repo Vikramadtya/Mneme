@@ -1,3 +1,5 @@
+import toast from "react-hot-toast";
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fetchApi } from '../../api/client';
 
@@ -57,7 +59,9 @@ export function useAddVocabulary() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['vocabulary'] });
       queryClient.invalidateQueries({ queryKey: ['collections'] });
-    }
+      toast.success('Word added successfully!');
+    },
+    onError: () => toast.error('Failed to add word')
   });
 }
 
@@ -74,7 +78,9 @@ export function useUpdateVocabulary() {
       if (variables.collectionId) {
          queryClient.invalidateQueries({ queryKey: ['collections'] });
       }
-    }
+      toast.success('Word updated successfully!');
+    },
+    onError: () => toast.error('Failed to update word')
   });
 }
 
@@ -85,7 +91,9 @@ export function useDeleteVocabulary() {
     onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: ['vocabulary'] });
         queryClient.invalidateQueries({ queryKey: ['collections'] });
-    }
+        toast.success('Word deleted!');
+    },
+    onError: () => toast.error('Failed to delete word')
   });
 }
 
