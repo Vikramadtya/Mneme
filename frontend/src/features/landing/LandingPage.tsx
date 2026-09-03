@@ -1,4 +1,4 @@
-import { Brain, Sparkles, BookOpen, Repeat, Layers, ChevronRight } from 'lucide-react';
+import { Sparkles, BookOpen, Repeat, Layers, ChevronRight } from 'lucide-react';
 
 export function LandingPage() {
     

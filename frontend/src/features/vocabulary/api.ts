@@ -6,6 +6,7 @@ export interface Meaning {
   definitions: { definition: string; example?: string }[];
   synonyms?: string[];
   antonyms?: string[];
+  createdAt?: string;
 }
 
 export interface VocabularyItem {
@@ -21,6 +22,7 @@ export interface VocabularyItem {
   examples?: string[];
   synonyms?: string[];
   antonyms?: string[];
+  createdAt?: string;
 }
 
 export interface VocabularyCollection {

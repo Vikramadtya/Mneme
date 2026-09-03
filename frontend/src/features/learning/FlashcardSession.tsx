@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useTodaysReviews, useSubmitReview } from './api';
 import { Link, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Loader2, Sparkles, Brain, Clock, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Loader2, Sparkles, Brain } from 'lucide-react';
 
 export function FlashcardSession() {
   const [searchParams] = useSearchParams();
@@ -35,7 +35,7 @@ export function FlashcardSession() {
   }
 
   const currentItem = reviews[currentIndex];
-  const { vocabulary, progress } = currentItem;
+  const { vocabulary } = currentItem;
 
   const handleGrade = (grade: number) => {
     submitReview.mutate({ wordId: vocabulary.id, grade });
