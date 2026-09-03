@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useLearningStats } from './api'
 import { useCollections } from '../vocabulary/api'
 import { BookOpen, Brain, Clock, ChevronRight, Activity, AlertCircle, Target, Award, Layers } from 'lucide-react'
+import { AnalyticsDashboard } from '../analytics/AnalyticsDashboard'
 
 export function Dashboard() {
   const navigate = useNavigate();
@@ -168,6 +169,8 @@ export function Dashboard() {
                 </div>
             </div>
         </div>
+
+        <AnalyticsDashboard />
 
       </div>
     </div>

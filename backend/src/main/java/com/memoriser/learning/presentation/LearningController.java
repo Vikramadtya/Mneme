@@ -2,6 +2,8 @@ package com.memoriser.learning.presentation;
 
 import com.memoriser.learning.domain.UserWordProgress;
 import com.memoriser.learning.domain.UserWordProgressRepository;
+import com.memoriser.learning.domain.ReviewLog;
+import com.memoriser.learning.domain.ReviewLogRepository;
 import com.memoriser.learning.application.SpacedRepetitionService;
 import com.memoriser.vocabulary.domain.VocabularyItem;
 import com.memoriser.vocabulary.domain.VocabularyItemRepository;
@@ -29,16 +31,19 @@ public class LearningController {
     private final VocabularyItemRepository vocabularyRepo;
     private final SpacedRepetitionService srsService;
     private final MicronautDataMongoCollectionRepository collectionRepo;
+    private final ReviewLogRepository reviewLogRepo;
 
     @Inject
     public LearningController(UserWordProgressRepository progressRepo, 
                               VocabularyItemRepository vocabularyRepo, 
                               SpacedRepetitionService srsService,
-                              MicronautDataMongoCollectionRepository collectionRepo) {
+                              MicronautDataMongoCollectionRepository collectionRepo,
+                              ReviewLogRepository reviewLogRepo) {
         this.progressRepo = progressRepo;
         this.vocabularyRepo = vocabularyRepo;
         this.srsService = srsService;
         this.collectionRepo = collectionRepo;
+        this.reviewLogRepo = reviewLogRepo;
     }
 
     @Get("/today")
@@ -106,6 +111,17 @@ public class LearningController {
                 .flatMap(progress -> {
                     UserWordProgress updated = srsService.processReview(progress, grade);
                     return Mono.from(progressRepo.save(updated));
+                })
+                .flatMap(savedProgress -> {
+                    // Create and save review log
+                    ReviewLog log = new ReviewLog();
+                    log.setUserId(userId);
+                    log.setWordId(wordId);
+                    log.setGrade(grade);
+                    log.setReviewedAt(Instant.now());
+                    
+                    return Mono.from(reviewLogRepo.save(log))
+                               .thenReturn(savedProgress);
                 });
     }
 }

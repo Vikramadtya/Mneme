@@ -12,6 +12,7 @@ import io.micronaut.security.annotation.Secured;
 import io.micronaut.security.rules.SecurityRule;
 import jakarta.inject.Inject;
 import org.reactivestreams.Publisher;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.security.Principal;
@@ -47,19 +48,18 @@ public class VocabularyController {
     }
 
     @Post
-    public Publisher<VocabularyItem> addVocabularyItem(@Body VocabularyItem item, Principal principal) {
+    public Publisher<VocabularyItem> addVocabularyItem(@Body VocabularyItem item, @QueryValue(defaultValue = "") String collectionId, Principal principal) {
         String userId = principal.getName();
         item.setCreatedBy(userId);
         item.setCreatedAt(Instant.now());
 
         return dictionaryService.fetchWordDetails(item).flatMap(enrichedItem -> {
-            
             if (enrichedItem.getDefinitions() == null || enrichedItem.getDefinitions().isEmpty()) {
                 enrichedItem.setDefinitions(List.of("No definition available."));
             }
 
             return Mono.from(vocabularyRepo.save(enrichedItem)).flatMap(savedItem -> {
-                // 1. Setup default progress
+                // Setup default progress
                 UserWordProgress p = new UserWordProgress();
                 p.setUserId(userId);
                 p.setWordId(savedItem.getId());
@@ -73,8 +73,15 @@ public class VocabularyController {
                 p.setFailureCount(0);
                 
                 return Mono.from(progressRepo.save(p)).flatMap(progress -> {
-                    // 2. Automatically assign to "Inbox" collection
-                    return Mono.from(collectionRepo.findByUserId(userId).filter(c -> "Inbox".equalsIgnoreCase(c.getName())).next())
+                    // Find target collection
+                    Mono<MongoVocabularyCollection> targetCollectionMono;
+                    if (collectionId != null && !collectionId.isEmpty()) {
+                        targetCollectionMono = Mono.from(collectionRepo.findById(collectionId));
+                    } else {
+                        targetCollectionMono = Mono.from(collectionRepo.findByUserId(userId).filter(c -> "Inbox".equalsIgnoreCase(c.getName())).next());
+                    }
+
+                    return targetCollectionMono
                         .switchIfEmpty(Mono.defer(() -> {
                             MongoVocabularyCollection inbox = new MongoVocabularyCollection();
                             inbox.setUserId(userId);
@@ -84,14 +91,14 @@ public class VocabularyController {
                             inbox.setCreatedAt(Instant.now());
                             return Mono.from(collectionRepo.save(inbox));
                         }))
-                        .flatMap(inbox -> {
-                            if (inbox.getWordIds() == null) {
-                                inbox.setWordIds(new ArrayList<>());
+                        .flatMap(targetCol -> {
+                            if (targetCol.getWordIds() == null) {
+                                targetCol.setWordIds(new ArrayList<>());
                             }
-                            if (!inbox.getWordIds().contains(savedItem.getId())) {
-                                inbox.getWordIds().add(savedItem.getId());
+                            if (!targetCol.getWordIds().contains(savedItem.getId())) {
+                                targetCol.getWordIds().add(savedItem.getId());
                             }
-                            return Mono.from(collectionRepo.update(inbox));
+                            return Mono.from(collectionRepo.update(targetCol));
                         })
                         .thenReturn(savedItem);
                 });
@@ -100,16 +107,52 @@ public class VocabularyController {
     }
 
     @Put("/{id}")
-    public Publisher<VocabularyItem> updateVocabularyItem(@PathVariable String id, @Body VocabularyItem item, Principal principal) {
+    public Publisher<VocabularyItem> updateVocabularyItem(@PathVariable String id, @Body VocabularyItem item, @QueryValue(defaultValue = "") String collectionId, Principal principal) {
+        String userId = principal.getName();
         item.setId(id);
-        item.setCreatedBy(principal.getName());
-        return vocabularyRepo.save(item);
+        item.setCreatedBy(userId);
+        
+        return Mono.from(vocabularyRepo.save(item)).flatMap(savedItem -> {
+            if (collectionId != null && !collectionId.isEmpty()) {
+                // 1. Remove word from all collections
+                return Flux.from(collectionRepo.findByUserId(userId))
+                    .flatMap(col -> {
+                        if (col.getWordIds() != null && col.getWordIds().contains(id)) {
+                            col.getWordIds().remove(id);
+                            return Mono.from(collectionRepo.update(col));
+                        }
+                        return Mono.just(col);
+                    })
+                    .then(Mono.defer(() -> {
+                        // 2. Add word to the target collection
+                        return Mono.from(collectionRepo.findById(collectionId)).flatMap(targetCol -> {
+                            if (targetCol.getWordIds() == null) {
+                                targetCol.setWordIds(new ArrayList<>());
+                            }
+                            if (!targetCol.getWordIds().contains(id)) {
+                                targetCol.getWordIds().add(id);
+                            }
+                            return Mono.from(collectionRepo.update(targetCol));
+                        });
+                    }))
+                    .thenReturn(savedItem);
+            }
+            return Mono.just(savedItem);
+        });
     }
 
     @Delete("/{id}")
     public Publisher<Void> deleteVocabularyItem(@PathVariable String id, Principal principal) {
-        // Optionally, remove the wordId from collections? Usually cascade deletes happen async or via cleanup, 
-        // but for now we'll just delete the item.
-        return vocabularyRepo.deleteById(id);
+        String userId = principal.getName();
+        // Remove word from all collections before deleting
+        return Flux.from(collectionRepo.findByUserId(userId))
+            .flatMap(col -> {
+                if (col.getWordIds() != null && col.getWordIds().contains(id)) {
+                    col.getWordIds().remove(id);
+                    return Mono.from(collectionRepo.update(col));
+                }
+                return Mono.just(col);
+            })
+            .then(Mono.from(vocabularyRepo.deleteById(id)));
     }
 }
