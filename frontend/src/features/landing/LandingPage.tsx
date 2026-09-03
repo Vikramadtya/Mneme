@@ -1,12 +1,32 @@
 import { Sparkles, BookOpen, Repeat, Layers, ChevronRight } from 'lucide-react';
+import { useGoogleLogin } from '@react-oauth/google';
+import { API_BASE_URL } from '../../api/client';
 
 export function LandingPage() {
     
-  const handleLogin = () => {
-      // Mock login for now
-      localStorage.setItem('isAuthenticated', 'true');
-      window.location.reload();
-  };
+  const handleLogin = useGoogleLogin({
+      onSuccess: async (tokenResponse) => {
+          try {
+              const res = await fetch(`${API_BASE_URL}/auth/login`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ token: tokenResponse.access_token })
+              });
+              
+              if (res.ok) {
+                  const data = await res.json();
+                  localStorage.setItem('isAuthenticated', 'true');
+                  localStorage.setItem('access_token', data.access_token);
+                  window.location.reload();
+              } else {
+                  console.error('Failed to login with backend');
+              }
+          } catch (e) {
+              console.error('Login error', e);
+          }
+      },
+      onError: error => console.error('Google Login Error:', error)
+  });
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 overflow-hidden selection:bg-indigo-100 selection:text-indigo-900">
@@ -17,7 +37,7 @@ export function LandingPage() {
           <span className="font-extrabold text-2xl tracking-tight text-slate-800">Memoriser</span>
         </div>
         <button 
-          onClick={handleLogin}
+          onClick={() => handleLogin()}
           className="bg-white border border-slate-200 text-slate-700 font-bold py-2.5 px-6 rounded-full shadow-sm hover:shadow-md hover:border-slate-300 transition-all flex items-center space-x-2"
         >
           <img src="https://www.svgrepo.com/show/475656/google-color.svg" className="w-5 h-5" alt="Google" />
@@ -49,7 +69,7 @@ export function LandingPage() {
           </p>
           
           <button 
-             onClick={handleLogin}
+             onClick={() => handleLogin()}
              className="bg-slate-900 text-white text-lg font-bold py-5 px-10 rounded-2xl shadow-xl hover:shadow-2xl hover:-translate-y-1 hover:bg-slate-800 transition-all flex items-center space-x-3 mx-auto"
           >
              <img src="https://www.svgrepo.com/show/475656/google-color.svg" className="w-6 h-6 bg-white rounded-full p-1" alt="Google" />

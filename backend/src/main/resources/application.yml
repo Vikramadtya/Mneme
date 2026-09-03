@@ -6,6 +6,13 @@ micronaut:
       enabled: true
   security:
     enabled: true
+    authentication: bearer
+    token:
+      jwt:
+        signatures:
+          secret:
+            generator:
+              secret: ${JWT_SECRET:super_secret_jwt_key_that_must_be_at_least_256_bits_long!}
 
 mongodb:
   uri: ${MONGO_URI:`mongodb://localhost:27017/memoriser_v3`}
