@@ -5,6 +5,8 @@ import com.memoriser.learning.domain.UserWordProgressRepository;
 import com.memoriser.vocabulary.domain.VocabularyItem;
 import com.memoriser.vocabulary.domain.VocabularyItemRepository;
 import com.memoriser.vocabulary.application.DictionaryService;
+import com.memoriser.vocabulary.infrastructure.MicronautDataMongoCollectionRepository;
+import com.memoriser.vocabulary.infrastructure.MongoVocabularyCollection;
 import io.micronaut.http.annotation.*;
 import io.micronaut.security.annotation.Secured;
 import io.micronaut.security.rules.SecurityRule;
@@ -14,6 +16,7 @@ import reactor.core.publisher.Mono;
 
 import java.security.Principal;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 
 @Controller("/api/v1/vocabulary")
@@ -23,12 +26,14 @@ public class VocabularyController {
     private final VocabularyItemRepository vocabularyRepo;
     private final UserWordProgressRepository progressRepo;
     private final DictionaryService dictionaryService;
+    private final MicronautDataMongoCollectionRepository collectionRepo;
 
     @Inject
-    public VocabularyController(VocabularyItemRepository vocabularyRepo, UserWordProgressRepository progressRepo, DictionaryService dictionaryService) {
+    public VocabularyController(VocabularyItemRepository vocabularyRepo, UserWordProgressRepository progressRepo, DictionaryService dictionaryService, MicronautDataMongoCollectionRepository collectionRepo) {
         this.vocabularyRepo = vocabularyRepo;
         this.progressRepo = progressRepo;
         this.dictionaryService = dictionaryService;
+        this.collectionRepo = collectionRepo;
     }
 
     @Get("/me")
@@ -47,15 +52,14 @@ public class VocabularyController {
         item.setCreatedBy(userId);
         item.setCreatedAt(Instant.now());
 
-        // We completely replace the old manual mapping logic and let DictionaryService do it!
         return dictionaryService.fetchWordDetails(item).flatMap(enrichedItem -> {
             
-            // Ensure there is at least a fallback if the API is down
             if (enrichedItem.getDefinitions() == null || enrichedItem.getDefinitions().isEmpty()) {
                 enrichedItem.setDefinitions(List.of("No definition available."));
             }
 
             return Mono.from(vocabularyRepo.save(enrichedItem)).flatMap(savedItem -> {
+                // 1. Setup default progress
                 UserWordProgress p = new UserWordProgress();
                 p.setUserId(userId);
                 p.setWordId(savedItem.getId());
@@ -67,7 +71,30 @@ public class VocabularyController {
                 p.setReviewCount(0);
                 p.setSuccessCount(0);
                 p.setFailureCount(0);
-                return Mono.from(progressRepo.save(p)).thenReturn(savedItem);
+                
+                return Mono.from(progressRepo.save(p)).flatMap(progress -> {
+                    // 2. Automatically assign to "Inbox" collection
+                    return Mono.from(collectionRepo.findByUserId(userId).filter(c -> "Inbox".equalsIgnoreCase(c.getName())).next())
+                        .switchIfEmpty(Mono.defer(() -> {
+                            MongoVocabularyCollection inbox = new MongoVocabularyCollection();
+                            inbox.setUserId(userId);
+                            inbox.setName("Inbox");
+                            inbox.setDescription("Default collection for new words");
+                            inbox.setWordIds(new ArrayList<>());
+                            inbox.setCreatedAt(Instant.now());
+                            return Mono.from(collectionRepo.save(inbox));
+                        }))
+                        .flatMap(inbox -> {
+                            if (inbox.getWordIds() == null) {
+                                inbox.setWordIds(new ArrayList<>());
+                            }
+                            if (!inbox.getWordIds().contains(savedItem.getId())) {
+                                inbox.getWordIds().add(savedItem.getId());
+                            }
+                            return Mono.from(collectionRepo.update(inbox));
+                        })
+                        .thenReturn(savedItem);
+                });
             });
         });
     }
@@ -81,6 +108,8 @@ public class VocabularyController {
 
     @Delete("/{id}")
     public Publisher<Void> deleteVocabularyItem(@PathVariable String id, Principal principal) {
+        // Optionally, remove the wordId from collections? Usually cascade deletes happen async or via cleanup, 
+        // but for now we'll just delete the item.
         return vocabularyRepo.deleteById(id);
     }
 }
