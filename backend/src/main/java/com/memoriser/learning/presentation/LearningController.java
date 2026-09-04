@@ -77,9 +77,15 @@ public class LearningController {
     @Get("/stats")
     public Publisher<Map<String, Object>> getStats(Principal principal) {
         String userId = principal.getName();
-        return Flux.from(progressRepo.findDueReviews(userId, Instant.now().plusSeconds(315360000))) 
+        return Flux.from(vocabularyRepo.findByCreatedByAndCreatedAtGreaterThanEquals(userId, Instant.EPOCH))
+                .map(VocabularyItem::getId)
                 .collectList()
-                .map(list -> {
+                .flatMap(validWordIds -> {
+                    return Flux.from(progressRepo.findDueReviews(userId, Instant.now().plusSeconds(315360000)))
+                        .collectList()
+                        .map(list -> {
+                            // Filter out orphans
+                            list = list.stream().filter(p -> validWordIds.contains(p.getWordId())).collect(Collectors.toList());
                     java.util.List<UserWordProgress> uniqueList = new java.util.ArrayList<>();
                     java.util.Set<String> seen = new java.util.HashSet<>();
                     for (UserWordProgress p : list) {
@@ -103,6 +109,7 @@ public class LearningController {
                     stats.put("accuracyPercent", Math.round(accuracy));
                     
                     return stats;
+                });
                 });
     }
 

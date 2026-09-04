@@ -92,9 +92,20 @@ public class AnalyticsController {
     @Get("/confidence")
     public Publisher<Map<String, Object>> getConfidence(Principal principal) {
         String userId = principal.getName();
-        return Flux.from(progressRepo.findByUserId(userId))
+        return Flux.from(vocabularyRepo.findByCreatedByAndCreatedAtGreaterThanEquals(userId, Instant.EPOCH))
+                .map(VocabularyItem::getId)
                 .collectList()
-                .map(progressList -> {
+                .flatMap(validWordIds -> {
+                    return Flux.from(progressRepo.findByUserId(userId))
+                        .collectList()
+                        .map(list -> {
+                            java.util.List<UserWordProgress> progressList = new java.util.ArrayList<>();
+                            java.util.Set<String> seen = new java.util.HashSet<>();
+                            for (UserWordProgress p : list) {
+                                if (validWordIds.contains(p.getWordId()) && seen.add(p.getWordId())) {
+                                    progressList.add(p);
+                                }
+                            }
                     long high = 0;
                     long medium = 0;
                     long low = 0;
@@ -116,6 +127,7 @@ public class AnalyticsController {
                     result.put("medium", medium);
                     result.put("low", low);
                     return result;
+                });
                 });
     }
 
