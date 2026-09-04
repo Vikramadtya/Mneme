@@ -108,16 +108,21 @@ export function Dashboard() {
                 </button>
                 
                 {collections && collections.length > 0 && (
+                    <div className="relative w-full sm:w-auto">
                     <select 
                         value={selectedCollectionId}
                         onChange={e => setSelectedCollectionId(e.target.value)}
-                        className="bg-slate-50 border border-slate-200 text-slate-700 py-4 px-4 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 w-full sm:w-auto font-medium"
+                        className="appearance-none bg-slate-50 border border-slate-200 text-slate-700 py-4 pl-4 pr-10 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-full font-medium cursor-pointer shadow-sm hover:border-slate-300 transition-colors"
                     >
                         <option value="all">Global (All Collections)</option>
                         {collections.map(c => (
                             <option key={c.id} value={c.id}>Target: {c.name}</option>
                         ))}
                     </select>
+                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500">
+                        <svg className="fill-current h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                    </div>
+                  </div>
                 )}
               </div>
             </div>
