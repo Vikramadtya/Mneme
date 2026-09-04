@@ -30,6 +30,11 @@ public class DictionaryService {
     }
 
     public Mono<VocabularyItem> fetchWordDetails(VocabularyItem item) {
+        // Skip fetching if the user already provided definitions (e.g., via auto-fill or manually)
+        if (item.getDefinitions() != null && !item.getDefinitions().isEmpty()) {
+            return Mono.just(item);
+        }
+        
         String cleanWord = item.getWord().trim().toLowerCase();
         
         HttpRequest requestPrimary = HttpRequest.newBuilder()
