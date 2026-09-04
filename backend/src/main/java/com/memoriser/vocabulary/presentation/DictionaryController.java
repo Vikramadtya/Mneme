@@ -35,50 +35,7 @@ public class DictionaryController {
         String cleanWord = word.trim().toLowerCase();
         System.out.println("Fetching definition for: " + cleanWord);
         
-        HttpRequest requestPrimary = HttpRequest.newBuilder()
-                .uri(URI.create("https://api.dictionaryapi.dev/api/v2/entries/en/" + cleanWord))
-                .timeout(Duration.ofMillis(1500))
-                .GET()
-                .build();
-
-        CompletableFuture<Map<String, String>> future = httpClient.sendAsync(requestPrimary, HttpResponse.BodyHandlers.ofString())
-                .thenCompose(response -> {
-                    System.out.println("Primary API responded with: " + response.statusCode());
-                    if (response.statusCode() == 200) {
-                        try {
-                            List<Map> responseList = jsonMapper.readValue(response.body().getBytes(), io.micronaut.core.type.Argument.of(List.class, Map.class));
-                            Map<String, Object> entry = (Map<String, Object>) responseList.get(0);
-                            
-                            Map<String, String> result = new HashMap<>();
-                            if (entry.containsKey("phonetic")) {
-                                result.put("pronunciation", (String) entry.get("phonetic"));
-                            }
-                            
-                            List<Map<String, Object>> meanings = (List<Map<String, Object>>) entry.get("meanings");
-                            for (Map<String, Object> meaning : meanings) {
-                                List<Map<String, Object>> definitions = (List<Map<String, Object>>) meaning.get("definitions");
-                                for (Map<String, Object> def : definitions) {
-                                    if (!result.containsKey("definition")) {
-                                        result.put("definition", (String) def.get("definition"));
-                                    }
-                                    if (!result.containsKey("example") && def.containsKey("example")) {
-                                        result.put("example", (String) def.get("example"));
-                                    }
-                                }
-                            }
-                            return CompletableFuture.completedFuture(result);
-                        } catch (Exception e) {
-                            System.err.println("Primary API Parsing error: " + e.getMessage());
-                            e.printStackTrace();
-                            // Proceed to fallback
-                        }
-                    }
-                    return fetchFromFallback(cleanWord);
-                })
-                .exceptionallyCompose(ex -> {
-                    System.err.println("Primary API failed entirely: " + ex.getMessage());
-                    return fetchFromFallback(cleanWord);
-                });
+        CompletableFuture<Map<String, String>> future = fetchFromFallback(cleanWord);
 
         return Mono.fromFuture(future);
     }
