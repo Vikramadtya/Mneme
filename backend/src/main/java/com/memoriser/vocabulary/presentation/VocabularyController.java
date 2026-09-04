@@ -109,37 +109,51 @@ public class VocabularyController {
     @Put("/{id}")
     public Publisher<VocabularyItem> updateVocabularyItem(@PathVariable String id, @Body VocabularyItem item, @QueryValue(defaultValue = "") String collectionId, Principal principal) {
         String userId = principal.getName();
-        item.setId(id);
-        item.setCreatedBy(userId);
         
-        return Mono.from(vocabularyRepo.save(item)).flatMap(savedItem -> {
-            if (collectionId != null && !collectionId.isEmpty()) {
-                // 1. Remove word from all collections
-                return Flux.from(collectionRepo.findByUserId(userId))
-                    .flatMap(col -> {
-                        if (col.getWordIds() != null && col.getWordIds().contains(id)) {
-                            col.getWordIds().remove(id);
-                            return Mono.from(collectionRepo.update(col));
-                        }
-                        return Mono.just(col);
-                    })
-                    .then(Mono.defer(() -> {
-                        // 2. Add word to the target collection
-                        return Mono.from(collectionRepo.findById(collectionId)).flatMap(targetCol -> {
-                            if (targetCol.getWordIds() == null) {
-                                targetCol.setWordIds(new ArrayList<>());
-                            }
-                            if (!targetCol.getWordIds().contains(id)) {
-                                targetCol.getWordIds().add(id);
-                            }
-                            return Mono.from(collectionRepo.update(targetCol));
-                        });
-                    }))
-                    .thenReturn(savedItem);
-            }
-            return Mono.just(savedItem);
-        });
+        return Mono.from(vocabularyRepo.findById(id))
+            .switchIfEmpty(Mono.error(new RuntimeException("Word not found")))
+            .flatMap(existingItem -> {
+                if (!existingItem.getCreatedBy().equals(userId)) {
+                    return Mono.error(new RuntimeException("Unauthorized"));
+                }
+                
+                // Merge updates
+                existingItem.setWord(item.getWord());
+                if (item.getDefinitions() != null) existingItem.setDefinitions(item.getDefinitions());
+                if (item.getExamples() != null) existingItem.setExamples(item.getExamples());
+                if (item.getPronunciation() != null) existingItem.setPronunciation(item.getPronunciation());
+                
+                return Mono.from(vocabularyRepo.update(existingItem)).flatMap(savedItem -> {
+                    if (collectionId != null && !collectionId.isEmpty()) {
+                        // 1. Remove word from all collections
+                        return Flux.from(collectionRepo.findByUserId(userId))
+                            .flatMap(col -> {
+                                if (col.getWordIds() != null && col.getWordIds().contains(id)) {
+                                    col.getWordIds().remove(id);
+                                    return Mono.from(collectionRepo.update(col));
+                                }
+                                return Mono.just(col);
+                            })
+                            .then(Mono.defer(() -> {
+                                // 2. Add word to the target collection
+                                return Mono.from(collectionRepo.findById(collectionId)).flatMap(targetCol -> {
+                                    if (targetCol.getWordIds() == null) {
+                                        targetCol.setWordIds(new ArrayList<>());
+                                    }
+                                    if (!targetCol.getWordIds().contains(id)) {
+                                        targetCol.getWordIds().add(id);
+                                    }
+                                    return Mono.from(collectionRepo.update(targetCol));
+                                });
+                            }))
+                            .thenReturn(savedItem);
+                    }
+                    return Mono.just(savedItem);
+                });
+            });
     }
+
+
 
     @Delete("/{id}")
     public Publisher<Void> deleteVocabularyItem(@PathVariable String id, Principal principal) {
