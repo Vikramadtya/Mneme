@@ -39,7 +39,7 @@ public class DictionaryService {
         
         HttpRequest requestPrimary = HttpRequest.newBuilder()
                 .uri(URI.create("https://api.dictionaryapi.dev/api/v2/entries/en/" + cleanWord))
-                .timeout(Duration.ofSeconds(5))
+                .timeout(Duration.ofMillis(1500))
                 .GET()
                 .build();
 
