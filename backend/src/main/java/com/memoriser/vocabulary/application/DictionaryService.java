@@ -30,6 +30,7 @@ public class DictionaryService {
     }
 
     public Mono<VocabularyItem> fetchWordDetails(VocabularyItem item) {
+        long start = System.currentTimeMillis();
         // Skip fetching if the user already provided definitions (e.g., via auto-fill or manually)
         if (item.getDefinitions() != null && !item.getDefinitions().isEmpty()) {
             return Mono.just(item);
@@ -122,7 +123,7 @@ public class DictionaryService {
                 })
                 .exceptionallyCompose(ex -> fetchFromFallback(item, cleanWord));
 
-        return Mono.fromFuture(future);
+        return Mono.fromFuture(future).doOnSuccess(res -> System.out.println("-> DictionaryService finished in " + (System.currentTimeMillis() - start) + "ms"));
     }
 
     private CompletableFuture<VocabularyItem> fetchFromFallback(VocabularyItem item, String cleanWord) {

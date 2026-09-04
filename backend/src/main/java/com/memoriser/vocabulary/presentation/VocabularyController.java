@@ -49,6 +49,8 @@ public class VocabularyController {
 
     @Post
     public Publisher<VocabularyItem> addVocabularyItem(@Body VocabularyItem item, @QueryValue(defaultValue = "") String collectionId, Principal principal) {
+        long start = System.currentTimeMillis();
+        System.out.println("-> Starting addVocabularyItem for word: " + item.getWord());
         String userId = principal.getName();
         item.setCreatedBy(userId);
         item.setCreatedAt(Instant.now());
