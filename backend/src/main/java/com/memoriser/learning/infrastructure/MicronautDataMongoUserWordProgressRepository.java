@@ -11,4 +11,5 @@ public interface MicronautDataMongoUserWordProgressRepository extends ReactorCru
     Mono<MongoUserWordProgress> findByUserIdAndWordId(String userId, String wordId);
     Flux<MongoUserWordProgress> findByUserIdAndNextReviewAtLessThanEquals(String userId, Instant nextReviewAt);
     Flux<MongoUserWordProgress> findByUserId(String userId);
+    Mono<Long> deleteByUserIdAndWordId(String userId, String wordId);
 }

@@ -38,8 +38,7 @@ public class DictionaryService {
         
         String cleanWord = item.getWord().trim().toLowerCase();
         
-        return fetchFromFallback(item, cleanWord);
-
+        CompletableFuture<VocabularyItem> future = fetchFromFallback(item, cleanWord);
         return Mono.fromFuture(future).doOnSuccess(res -> System.out.println("-> DictionaryService finished in " + (System.currentTimeMillis() - start) + "ms"));
     }
 

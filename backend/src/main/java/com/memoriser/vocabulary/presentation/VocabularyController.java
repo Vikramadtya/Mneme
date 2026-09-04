@@ -169,6 +169,7 @@ public class VocabularyController {
                 }
                 return Mono.just(col);
             })
-            .then(Mono.from(vocabularyRepo.deleteById(id)));
+            .then(Mono.from(vocabularyRepo.deleteById(id)))
+            .then(Mono.from(progressRepo.deleteByUserIdAndWordId(userId, id)));
     }
 }

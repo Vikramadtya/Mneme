@@ -8,4 +8,5 @@ public interface UserWordProgressRepository {
     Publisher<UserWordProgress> findByUserIdAndWordId(String userId, String wordId);
     Publisher<UserWordProgress> findDueReviews(String userId, Instant before);
     Publisher<UserWordProgress> findByUserId(String userId);
+    Publisher<Void> deleteByUserIdAndWordId(String userId, String wordId);
 }

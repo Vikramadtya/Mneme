@@ -36,6 +36,11 @@ public class UserWordProgressRepositoryAdapter implements UserWordProgressReposi
         return mongoRepository.findByUserId(userId).map(this::toDomainModel);
     }
 
+    @Override
+    public Publisher<Void> deleteByUserIdAndWordId(String userId, String wordId) {
+        return mongoRepository.deleteByUserIdAndWordId(userId, wordId).then();
+    }
+
     private MongoUserWordProgress toMongoModel(UserWordProgress progress) {
         MongoUserWordProgress mongo = new MongoUserWordProgress();
         mongo.setId(progress.getId());
