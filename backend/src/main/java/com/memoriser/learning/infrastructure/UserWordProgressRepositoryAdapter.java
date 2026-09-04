@@ -31,6 +31,11 @@ public class UserWordProgressRepositoryAdapter implements UserWordProgressReposi
         return mongoRepository.findByUserIdAndNextReviewAtLessThanEquals(userId, before).map(this::toDomainModel);
     }
 
+    @Override
+    public Publisher<UserWordProgress> findByUserId(String userId) {
+        return mongoRepository.findByUserId(userId).map(this::toDomainModel);
+    }
+
     private MongoUserWordProgress toMongoModel(UserWordProgress progress) {
         MongoUserWordProgress mongo = new MongoUserWordProgress();
         mongo.setId(progress.getId());

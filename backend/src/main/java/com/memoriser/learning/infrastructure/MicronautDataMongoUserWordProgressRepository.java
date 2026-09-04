@@ -10,4 +10,5 @@ import java.time.Instant;
 public interface MicronautDataMongoUserWordProgressRepository extends ReactorCrudRepository<MongoUserWordProgress, String> {
     Mono<MongoUserWordProgress> findByUserIdAndWordId(String userId, String wordId);
     Flux<MongoUserWordProgress> findByUserIdAndNextReviewAtLessThanEquals(String userId, Instant nextReviewAt);
+    Flux<MongoUserWordProgress> findByUserId(String userId);
 }

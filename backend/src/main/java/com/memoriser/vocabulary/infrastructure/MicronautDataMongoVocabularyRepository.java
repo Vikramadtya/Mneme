@@ -7,4 +7,5 @@ import reactor.core.publisher.Flux;
 @MongoRepository
 public interface MicronautDataMongoVocabularyRepository extends ReactorCrudRepository<MongoVocabularyItem, String> {
     Flux<MongoVocabularyItem> findByCreatedBy(String createdBy);
+    Flux<MongoVocabularyItem> findByCreatedByAndCreatedAtGreaterThanEquals(String createdBy, java.time.Instant createdAt);
 }

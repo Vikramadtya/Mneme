@@ -58,8 +58,7 @@ public class AnalyticsController {
                                 Collectors.counting()
                         )));
 
-        Mono<Map<String, Long>> wordsAddedMono = Flux.from(vocabularyRepo.findByCreatedBy(userId))
-                .filter(v -> v.getCreatedAt() != null && v.getCreatedAt().isAfter(thirtyDaysAgo))
+        Mono<Map<String, Long>> wordsAddedMono = Flux.from(vocabularyRepo.findByCreatedByAndCreatedAtGreaterThanEquals(userId, thirtyDaysAgo))
                 .collectList()
                 .map(words -> words.stream()
                         .collect(Collectors.groupingBy(
@@ -93,7 +92,7 @@ public class AnalyticsController {
     @Get("/confidence")
     public Publisher<Map<String, Object>> getConfidence(Principal principal) {
         String userId = principal.getName();
-        return Flux.from(progressRepo.findDueReviews(userId, Instant.now().plusSeconds(315360000))) // Hack to get all progress
+        return Flux.from(progressRepo.findByUserId(userId))
                 .collectList()
                 .map(progressList -> {
                     long high = 0;
@@ -124,7 +123,7 @@ public class AnalyticsController {
     public Publisher<List<Map<String, Object>>> getCollectionsAnalytics(Principal principal) {
         String userId = principal.getName();
         
-        Mono<List<UserWordProgress>> allProgressMono = Flux.from(progressRepo.findDueReviews(userId, Instant.now().plusSeconds(315360000))).collectList();
+        Mono<List<UserWordProgress>> allProgressMono = Flux.from(progressRepo.findByUserId(userId)).collectList();
         
         return allProgressMono.flatMapMany(progressList -> {
             Map<String, UserWordProgress> progressMap = progressList.stream()

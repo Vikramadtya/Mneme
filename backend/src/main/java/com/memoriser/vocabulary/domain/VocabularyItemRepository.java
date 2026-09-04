@@ -8,4 +8,5 @@ public interface VocabularyItemRepository {
     Publisher<Void> deleteById(String id);
     Publisher<VocabularyItem> findById(String id);
     Publisher<VocabularyItem> findByCreatedBy(String createdBy);
+    Publisher<VocabularyItem> findByCreatedByAndCreatedAtGreaterThanEquals(String createdBy, java.time.Instant createdAt);
 }

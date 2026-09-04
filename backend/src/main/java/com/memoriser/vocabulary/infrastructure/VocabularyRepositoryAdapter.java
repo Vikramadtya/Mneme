@@ -44,6 +44,11 @@ public class VocabularyRepositoryAdapter implements VocabularyItemRepository {
     }
 
     @Override
+    public Publisher<VocabularyItem> findByCreatedByAndCreatedAtGreaterThanEquals(String createdBy, Instant createdAt) {
+        return mongoRepository.findByCreatedByAndCreatedAtGreaterThanEquals(createdBy, createdAt).map(this::toDomainModel);
+    }
+
+    @Override
     public Publisher<Void> deleteById(String id) {
         return reactor.core.publisher.Mono.from(mongoRepository.deleteById(id)).then();
     }
