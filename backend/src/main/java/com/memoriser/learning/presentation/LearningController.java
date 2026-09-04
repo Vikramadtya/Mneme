@@ -51,7 +51,7 @@ public class LearningController {
     public Publisher<Map<String, Object>> getDueReviews(Principal principal, @Nullable @QueryValue String collectionId) {
         String userId = principal.getName();
         
-        Flux<UserWordProgress> baseProgress = Flux.from(progressRepo.findDueReviews(userId, Instant.now()));
+        Flux<UserWordProgress> baseProgress = Flux.from(progressRepo.findDueReviews(userId, Instant.now())).distinct(UserWordProgress::getWordId);
         Flux<UserWordProgress> filteredProgress;
 
         if (collectionId != null && !collectionId.isEmpty()) {
@@ -80,20 +80,25 @@ public class LearningController {
         return Flux.from(progressRepo.findDueReviews(userId, Instant.now().plusSeconds(315360000))) 
                 .collectList()
                 .map(list -> {
-                    long dueCount = list.stream().filter(p -> p.getNextReviewAt().isBefore(Instant.now())).count();
-                    long newCount = list.stream().filter(p -> "NEW".equals(p.getState())).count();
-                    long learningCount = list.stream().filter(p -> "LEARNING".equals(p.getState())).count();
-                    long graduatedCount = list.stream().filter(p -> "GRADUATED".equals(p.getState())).count();
+                    java.util.List<UserWordProgress> uniqueList = new java.util.ArrayList<>();
+                    java.util.Set<String> seen = new java.util.HashSet<>();
+                    for (UserWordProgress p : list) {
+                        if (seen.add(p.getWordId())) uniqueList.add(p);
+                    }
+                    long dueCount = uniqueList.stream().filter(p -> p.getNextReviewAt().isBefore(Instant.now())).count();
+                    long newCount = uniqueList.stream().filter(p -> "NEW".equals(p.getState())).count();
+                    long learningCount = uniqueList.stream().filter(p -> "LEARNING".equals(p.getState())).count();
+                    long graduatedCount = uniqueList.stream().filter(p -> "GRADUATED".equals(p.getState())).count();
                     
                     Map<String, Object> stats = new HashMap<>();
-                    stats.put("totalWords", list.size());
+                    stats.put("totalWords", uniqueList.size());
                     stats.put("dueCount", dueCount);
                     stats.put("newCount", newCount);
                     stats.put("learningCount", learningCount);
                     stats.put("graduatedCount", graduatedCount);
                     
-                    long totalReviews = list.stream().mapToInt(UserWordProgress::getReviewCount).sum();
-                    long successReviews = list.stream().mapToInt(UserWordProgress::getSuccessCount).sum();
+                    long totalReviews = uniqueList.stream().mapToInt(UserWordProgress::getReviewCount).sum();
+                    long successReviews = uniqueList.stream().mapToInt(UserWordProgress::getSuccessCount).sum();
                     double accuracy = totalReviews > 0 ? (double) successReviews / totalReviews * 100 : 0.0;
                     stats.put("accuracyPercent", Math.round(accuracy));
                     

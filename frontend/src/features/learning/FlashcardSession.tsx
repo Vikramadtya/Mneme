@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { TodayReview } from './api';
 import { useTodaysReviews, useSubmitReview } from './api';
 import { Link, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Loader2, Sparkles, Brain } from 'lucide-react';
@@ -7,11 +8,18 @@ export function FlashcardSession() {
   const [searchParams] = useSearchParams();
   const collectionId = searchParams.get('collectionId');
   
-  const { data: reviews, isLoading, isError } = useTodaysReviews(collectionId);
+  const { data: initialReviews, isLoading, isError } = useTodaysReviews(collectionId);
   const submitReview = useSubmitReview();
   
+  const [reviews, setReviews] = useState<TodayReview[] | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isRevealed, setIsRevealed] = useState(false);
+
+  useEffect(() => {
+    if (initialReviews && reviews === null) {
+        setReviews(initialReviews);
+    }
+  }, [initialReviews, reviews]);
 
   if (isLoading) return <div className="min-h-screen flex items-center justify-center bg-slate-50"><Loader2 className="w-8 h-8 animate-spin text-blue-500" /></div>;
   if (isError) return <div className="min-h-screen flex items-center justify-center bg-slate-50 text-red-500">Failed to load session.</div>;
