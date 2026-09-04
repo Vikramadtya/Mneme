@@ -8,6 +8,7 @@
         </encoder>
     </appender>
 
+    <logger name="HTTP_ACCESS_LOGGER" level="INFO" />
     <root level="info">
         <appender-ref ref="STDOUT" />
     </root>

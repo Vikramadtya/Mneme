@@ -124,11 +124,16 @@ export function VocabularyManager() {
     };
 
     if (editingId) {
-      updateWord.mutate({ id: editingId, item: itemData, collectionId: formCollectionId });
+      updateWord.mutate(
+        { id: editingId, item: itemData, collectionId: formCollectionId },
+        { onSuccess: () => setShowAddForm(false) }
+      );
     } else {
-      addWord.mutate({ item: itemData, collectionId: formCollectionId });
+      addWord.mutate(
+        { item: itemData, collectionId: formCollectionId },
+        { onSuccess: () => setShowAddForm(false) }
+      );
     }
-    setShowAddForm(false);
   };
 
   const handleDeleteClick = (word: any) => {
@@ -282,7 +287,7 @@ export function VocabularyManager() {
               <div className="flex justify-end space-x-3 pt-4 border-t border-slate-100">
                 <button type="button" onClick={() => setShowAddForm(false)} className="px-4 py-2 text-slate-600 font-medium hover:bg-slate-100 rounded-lg transition-colors">Cancel</button>
                 <button type="submit" disabled={addWord.isPending || updateWord.isPending} className="bg-slate-900 text-white px-6 py-2 rounded-lg font-medium hover:bg-slate-800 disabled:opacity-50 transition-colors shadow-sm">
-                  {editingId ? 'Save Changes' : 'Save Word'}
+                  {addWord.isPending || updateWord.isPending ? 'Saving...' : editingId ? 'Save Changes' : 'Save Word'}
                 </button>
               </div>
             </form>
