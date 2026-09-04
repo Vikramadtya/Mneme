@@ -127,7 +127,7 @@ public class AnalyticsController {
         
         return allProgressMono.flatMapMany(progressList -> {
             Map<String, UserWordProgress> progressMap = progressList.stream()
-                    .collect(Collectors.toMap(UserWordProgress::getWordId, p -> p));
+                    .collect(Collectors.toMap(UserWordProgress::getWordId, p -> p, (existing, replacement) -> existing));
 
             return Flux.from(collectionRepo.findByUserId(userId))
                     .map(collection -> {

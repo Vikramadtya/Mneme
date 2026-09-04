@@ -18,6 +18,9 @@ public class UserWordProgressRepositoryAdapter implements UserWordProgressReposi
     @Override
     public Publisher<UserWordProgress> save(UserWordProgress progress) {
         MongoUserWordProgress mongoModel = toMongoModel(progress);
+        if (mongoModel.getId() != null && !mongoModel.getId().isEmpty()) {
+            return mongoRepository.update(mongoModel).map(this::toDomainModel);
+        }
         return mongoRepository.save(mongoModel).map(this::toDomainModel);
     }
 
