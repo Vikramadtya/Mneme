@@ -30,6 +30,7 @@ export function VocabularyManager() {
   
   const [isFetchingDictionary, setIsFetchingDictionary] = useState(false);
   const [dictionaryError, setDictionaryError] = useState('');
+  const [wordToDelete, setWordToDelete] = useState<any>(null);
 
   
   // Auto-select a collection if none is selected and collections have loaded
@@ -130,9 +131,14 @@ export function VocabularyManager() {
     setShowAddForm(false);
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm('Are you sure you want to delete this word?')) {
-      deleteWord.mutate(id);
+  const handleDeleteClick = (word: any) => {
+    setWordToDelete(word);
+  };
+
+  const confirmDelete = () => {
+    if (wordToDelete) {
+      deleteWord.mutate(wordToDelete.id);
+      setWordToDelete(null);
     }
   };
 
@@ -368,9 +374,40 @@ export function VocabularyManager() {
                       <button onClick={() => handleOpenEdit(word)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Quick Edit (Move Collection)">
                         <Edit2 className="w-5 h-5" />
                       </button>
-                      <button onClick={() => handleDelete(word.id)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
+                      <button onClick={() => handleDeleteClick(word)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
                         <Trash2 className="w-5 h-5" />
                       </button>
+        {/* Delete Confirmation Modal */}
+        {wordToDelete && (
+          <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl animate-in zoom-in-95">
+              <div className="p-6 text-center">
+                <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-red-600">
+                  <Trash2 className="w-8 h-8" />
+                </div>
+                <h2 className="text-xl font-bold text-slate-900 mb-2">Delete "{wordToDelete.word}"?</h2>
+                <p className="text-slate-500 mb-6 text-sm leading-relaxed">
+                  Are you sure you want to delete this word? This action cannot be undone and it will be removed from all collections.
+                </p>
+                <div className="flex flex-col space-y-2">
+                  <button 
+                    onClick={confirmDelete} 
+                    className="w-full bg-red-600 text-white font-bold py-3 rounded-xl hover:bg-red-700 transition"
+                  >
+                    Yes, Delete
+                  </button>
+                  <button 
+                    onClick={() => setWordToDelete(null)} 
+                    className="w-full bg-slate-100 text-slate-700 font-bold py-3 rounded-xl hover:bg-slate-200 transition"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
                     </div>
                   </div>
                 );
