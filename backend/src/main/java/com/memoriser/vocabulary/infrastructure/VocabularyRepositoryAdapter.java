@@ -45,7 +45,7 @@ public class VocabularyRepositoryAdapter implements VocabularyItemRepository {
 
     @Override
     public Publisher<Void> deleteById(String id) {
-        return mongoRepository.deleteById(id).map(count -> null); // Map Long to Void
+        return reactor.core.publisher.Mono.from(mongoRepository.deleteById(id)).then();
     }
 
     private MongoVocabularyItem toMongoModel(VocabularyItem item) {
