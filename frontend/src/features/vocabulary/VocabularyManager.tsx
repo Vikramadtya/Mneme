@@ -31,6 +31,16 @@ export function VocabularyManager() {
   const [isFetchingDictionary, setIsFetchingDictionary] = useState(false);
   const [dictionaryError, setDictionaryError] = useState('');
 
+  
+  // Auto-select a collection if none is selected and collections have loaded
+  useEffect(() => {
+      if (showAddForm && !formCollectionId && collections && collections.length > 0) {
+          const inbox = collections.find(c => c.name === 'Inbox') || collections[0];
+          setFormCollectionId(inbox.id);
+      }
+  }, [showAddForm, collections, formCollectionId]);
+
+
   // Handle URL triggers (e.g. clicking "Add Word" from Collections page)
   useEffect(() => {
       if (searchParams.get('addWord') === 'true' && collections && !showAddForm) {
@@ -87,11 +97,12 @@ export function VocabularyManager() {
     setIsFetchingDictionary(true);
     setDictionaryError('');
     try {
-      const data = await fetchApi<any>(`/dictionary/lookup?word=${encodeURIComponent(formWord)}`);
+      const data = await fetchApi<any>(`/dictionary/${encodeURIComponent(formWord.trim().toLowerCase())}`);
       if (data) {
-        if (data.definitions && data.definitions.length > 0) setFormDef(data.definitions[0]);
-        if (data.examples && data.examples.length > 0) setFormExample(data.examples[0]);
+        if (data.definition) setFormDef(data.definition);
+        if (data.example) setFormExample(data.example);
         if (data.pronunciation) setFormPronunciation(data.pronunciation);
+        if (data.error) throw new Error(data.error);
       }
     } catch (e: any) {
       setDictionaryError(e.message || 'Dictionary API is temporarily unavailable.');
@@ -207,17 +218,24 @@ export function VocabularyManager() {
                   </div>
                   <div>
                       <label className="block text-sm font-medium text-slate-700 mb-1">Assign to Collection</label>
-                      <select 
-                          value={formCollectionId}
-                          onChange={e => setFormCollectionId(e.target.value)}
-                          className="w-full border border-slate-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none bg-white"
-                          required
-                      >
-                          <option value="" disabled>Select a collection...</option>
-                          {collections?.map(c => (
-                              <option key={c.id} value={c.id}>{c.name}</option>
-                          ))}
-                      </select>
+                      
+                    <div className="relative">
+                        <select 
+                            value={formCollectionId}
+                            onChange={e => setFormCollectionId(e.target.value)}
+                            className="appearance-none w-full border border-slate-300 rounded-xl px-4 py-3 bg-white focus:ring-2 focus:ring-blue-500 outline-none text-slate-700 font-medium cursor-pointer shadow-sm"
+                            required
+                        >
+                            <option value="" disabled>Select a collection to assign...</option>
+                            {collections?.map(c => (
+                                <option key={c.id} value={c.id}>{c.name} ({c.wordIds?.length || 0} words)</option>
+                            ))}
+                        </select>
+                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500">
+                            <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                        </div>
+                    </div>
+
                   </div>
               </div>
 
