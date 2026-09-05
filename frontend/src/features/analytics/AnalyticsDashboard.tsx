@@ -1,4 +1,4 @@
-import { useActivityAnalytics, useConfidenceAnalytics, useCollectionsAnalytics } from './api';
+import { useAnalyticsSummary } from './api';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell } from 'recharts';
 import { Loader2 } from 'lucide-react';
 
@@ -6,11 +6,9 @@ const COLORS = ['#10B981', '#F59E0B', '#EF4444'];
 const PIE_COLORS = ['#3B82F6', '#8B5CF6', '#EC4899', '#F59E0B', '#10B981', '#6366F1'];
 
 export function AnalyticsDashboard() {
-  const { data: activityData, isLoading: activityLoading } = useActivityAnalytics();
-  const { data: confidenceData, isLoading: confidenceLoading } = useConfidenceAnalytics();
-  const { data: collectionsData, isLoading: collectionsLoading } = useCollectionsAnalytics();
-
-  if (activityLoading || confidenceLoading || collectionsLoading) {
+  const { data: summaryData, isLoading } = useAnalyticsSummary() as any;
+    
+  if (isLoading || !summaryData) {
     return (
       <div className="flex justify-center items-center py-24">
         <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
@@ -19,7 +17,7 @@ export function AnalyticsDashboard() {
   }
 
   // Formatting Activity Data for Chart
-  const formattedActivity = (activityData?.activity || []).map(item => ({
+  const formattedActivity = (summaryData?.activity || []).map((item: any) => ({
     name: new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
     Reviews: item.reviews,
     'New Words Added': item.newWords
@@ -27,9 +25,9 @@ export function AnalyticsDashboard() {
 
   // Formatting Confidence Data for Chart
   const formattedConfidence = [
-    { name: 'High Confidence', value: confidenceData?.high || 0 },
-    { name: 'Learning', value: confidenceData?.medium || 0 },
-    { name: 'Low Confidence', value: confidenceData?.low || 0 },
+    { name: 'High Confidence', value: summaryData?.confidence.high || 0 },
+    { name: 'Learning', value: summaryData?.confidence.medium || 0 },
+    { name: 'Low Confidence', value: summaryData?.confidence.low || 0 },
   ];
 
   const totalWords = formattedConfidence.reduce((acc, curr) => acc + curr.value, 0);
@@ -114,7 +112,7 @@ export function AnalyticsDashboard() {
       <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
           <h3 className="text-lg font-bold text-slate-800 mb-6">Collections Breakdown</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {collectionsData?.map((col, index) => (
+              {summaryData?.collections?.map((col: any, index: any) => (
                   <div key={col.id} className="p-4 rounded-2xl bg-slate-50 border border-slate-100 flex flex-col">
                       <div className="flex items-center space-x-2 mb-3">
                          <div className="w-3 h-3 rounded-full" style={{ backgroundColor: PIE_COLORS[index % PIE_COLORS.length] }}></div>
@@ -132,7 +130,7 @@ export function AnalyticsDashboard() {
                       </div>
                   </div>
               ))}
-              {(!collectionsData || collectionsData.length === 0) && (
+              {(!summaryData?.collections || summaryData?.collections.length === 0) && (
                   <p className="text-slate-500 col-span-full">No collections available yet.</p>
               )}
           </div>

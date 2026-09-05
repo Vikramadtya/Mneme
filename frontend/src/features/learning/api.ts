@@ -22,10 +22,10 @@ export function useTodaysReviews(collectionId?: string | null) {
   });
 }
 
-export function useLearningStats() {
-  return useQuery<LearningStats>({
-    queryKey: ['learning', 'stats'],
-    queryFn: () => fetchApi('/learning/stats')
+export function useDashboardOverview() {
+  return useQuery<any>({
+    queryKey: ['dashboard', 'overview'],
+    queryFn: () => fetchApi('/dashboard/overview')
   });
 }
 

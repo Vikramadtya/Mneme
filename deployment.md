@@ -4,7 +4,7 @@ This guide details how to deploy the Memoriser application across three speciali
 
 ## Overview
 - **Database:** MongoDB Atlas (Cloud-hosted NoSQL)
-- **Backend API:** Render (Java/Micronaut Web Service)
+- **Backend API:** Render (Node.js/NestJS Web Service)
 - **Frontend App:** Vercel (React/Vite SPA)
 
 ---
@@ -53,6 +53,6 @@ This guide details how to deploy the Memoriser application across three speciali
 We have added automated Continuous Integration (CI) workflows in `.github/workflows/`.
 Every time you push code to `main` or open a Pull Request:
 1. `ci-frontend.yml`: Verifies the React code compiles without TypeScript errors.
-2. `ci-backend.yml`: Compiles the Java backend to ensure no build failures.
+2. `ci-backend.yml`: Compiles the NestJS backend to ensure no build failures.
 
 *Note: You do not need GitHub Actions for the actual Deployment. Vercel and Render natively integrate with GitHub and will automatically deploy whenever code is pushed to `main`.*

@@ -1,14 +1,14 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useLearningStats } from './api'
-import { useCollections } from '../vocabulary/api'
+import { useDashboardOverview } from './api'
 import { BookOpen, Brain, Clock, ChevronRight, Activity, AlertCircle, Target, Award, Layers } from 'lucide-react'
 import { AnalyticsDashboard } from '../analytics/AnalyticsDashboard'
 
 export function Dashboard() {
   const navigate = useNavigate();
-  const { data: stats, isLoading, isError } = useLearningStats();
-  const { data: collections } = useCollections();
+  const { data: overview, isLoading, isError } = useDashboardOverview() as any;
+  const stats = overview?.stats;
+  const collections = overview?.collections;
   
   const [selectedCollectionId, setSelectedCollectionId] = useState<string>('all');
 
@@ -115,7 +115,7 @@ export function Dashboard() {
                         className="appearance-none bg-slate-50 border border-slate-200 text-slate-700 py-4 pl-4 pr-10 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-full font-medium cursor-pointer shadow-sm hover:border-slate-300 transition-colors"
                     >
                         <option value="all">Global (All Collections)</option>
-                        {collections.map(c => (
+                        {collections.map((c: any) => (
                             <option key={c.id} value={c.id}>Target: {c.name}</option>
                         ))}
                     </select>

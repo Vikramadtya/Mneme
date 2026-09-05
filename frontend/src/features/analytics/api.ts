@@ -20,23 +20,9 @@ export interface CollectionAnalyticsData {
   accuracyPercent: number;
 }
 
-export function useActivityAnalytics() {
-  return useQuery<{ activity: ActivityData[] }>({
-    queryKey: ['analytics', 'activity'],
-    queryFn: () => fetchApi('/analytics/activity')
-  });
-}
-
-export function useConfidenceAnalytics() {
-  return useQuery<ConfidenceData>({
-    queryKey: ['analytics', 'confidence'],
-    queryFn: () => fetchApi('/analytics/confidence')
-  });
-}
-
-export function useCollectionsAnalytics() {
-  return useQuery<CollectionAnalyticsData[]>({
-    queryKey: ['analytics', 'collections'],
-    queryFn: () => fetchApi('/analytics/collections')
+export function useAnalyticsSummary() {
+  return useQuery<any>({
+    queryKey: ['analytics', 'summary'],
+    queryFn: () => fetchApi('/analytics/summary')
   });
 }
