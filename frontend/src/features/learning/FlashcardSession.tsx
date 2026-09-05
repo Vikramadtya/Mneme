@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { TodayReview } from './api';
+import type { TodayReview } from './api';
 import { useTodaysReviews, useSubmitReview } from './api';
 import { Link, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Loader2, Sparkles, Brain } from 'lucide-react';
