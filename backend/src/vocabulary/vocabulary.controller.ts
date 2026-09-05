@@ -39,13 +39,13 @@ export class VocabularyController {
     }
 
     // BUG FIX: Headless Word Fix using Mongoose Transactions
-    const session = await this.vocabModel.db.startSession();
-    session.startTransaction();
-    
+    let savedItem;
     try {
-      const savedItem = new this.vocabModel(item);
-      await savedItem.save({ session });
+      // Create and save the word first
+      savedItem = new this.vocabModel(item);
+      await savedItem.save();
       
+      // Create and save progress tracker
       const progress = new this.progressModel({
         userId,
         wordId: savedItem._id.toString(),
@@ -57,11 +57,12 @@ export class VocabularyController {
         successCount: 0,
         failureCount: 0
       });
-      await progress.save({ session });
+      await progress.save();
       
+      // Update collections
       let targetCollection = collectionId ? 
-        await this.collectionModel.findById(collectionId).session(session) : 
-        await this.collectionModel.findOne({ userId, name: { $regex: /^Inbox$/i } }).session(session);
+        await this.collectionModel.findById(collectionId) : 
+        await this.collectionModel.findOne({ userId, name: { $regex: /^Inbox$/i } });
         
       if (!targetCollection && !collectionId) {
         targetCollection = new this.collectionModel({ name: 'Inbox', userId, wordIds: [] });
@@ -70,16 +71,17 @@ export class VocabularyController {
       if (targetCollection) {
         if (!targetCollection.wordIds) targetCollection.wordIds = [];
         targetCollection.wordIds.push(savedItem._id.toString());
-        await targetCollection.save({ session });
+        await targetCollection.save();
       }
       
-      await session.commitTransaction();
       return savedItem;
     } catch (error: any) {
-      await session.abortTransaction();
-      throw new HttpException('Failed to save word and progress atomically: ' + error.message, HttpStatus.INTERNAL_SERVER_ERROR);
-    } finally {
-      session.endSession();
+      // Manual rollback if something fails to prevent headless words!
+      if (savedItem && savedItem._id) {
+         await this.vocabModel.findByIdAndDelete(savedItem._id);
+         await this.progressModel.deleteMany({ wordId: savedItem._id.toString() });
+      }
+      throw new HttpException('Failed to save word: ' + error.message, HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 

@@ -50,7 +50,7 @@ export const VocabularyItemSchema = SchemaFactory.createForClass(VocabularyItem)
 
 // BUG FIX: Prevent Orphaned Progress Trackers
 // When a VocabularyItem is deleted, automatically cascade and delete its associated UserWordProgress
-VocabularyItemSchema.pre('findOneAndDelete', async function (next: any) {
+VocabularyItemSchema.pre('findOneAndDelete', async function () {
   const docToUpdate = await this.model.findOne(this.getQuery());
   if (docToUpdate) {
     // Access the Mongoose connection to delete from other collections
@@ -63,5 +63,5 @@ VocabularyItemSchema.pre('findOneAndDelete', async function (next: any) {
       { $pull: { wordIds: docToUpdate._id.toString() } }
     );
   }
-  next();
+  
 });
