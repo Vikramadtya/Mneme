@@ -91,6 +91,31 @@ public class LearningController {
                     for (UserWordProgress p : list) {
                         if (seen.add(p.getWordId())) uniqueList.add(p);
                     }
+                    
+                    // HEALING LOGIC: Create progress for missing words
+                    List<String> missingWordIds = validWordIds.stream()
+                        .filter(id -> !seen.contains(id))
+                        .collect(Collectors.toList());
+                    
+                    if (!missingWordIds.isEmpty()) {
+                        System.out.println("Healing " + missingWordIds.size() + " missing progress entries...");
+                        for (String missingId : missingWordIds) {
+                            UserWordProgress p = new UserWordProgress();
+                            p.setUserId(userId);
+                            p.setWordId(missingId);
+                            p.setState("NEW");
+                            p.setDifficulty(5.0);
+                            p.setStability(0.0);
+                            p.setNextReviewAt(Instant.now());
+                            p.setCreatedAt(Instant.now());
+                            p.setReviewCount(0);
+                            p.setSuccessCount(0);
+                            p.setFailureCount(0);
+                            // Fire and forget save to DB
+                            Mono.from(progressRepo.save(p)).subscribe();
+                            uniqueList.add(p);
+                        }
+                    }
                     long dueCount = uniqueList.stream().filter(p -> p.getNextReviewAt().isBefore(Instant.now())).count();
                     long newCount = uniqueList.stream().filter(p -> "NEW".equals(p.getState())).count();
                     long learningCount = uniqueList.stream().filter(p -> "LEARNING".equals(p.getState())).count();
