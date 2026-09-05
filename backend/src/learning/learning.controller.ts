@@ -49,7 +49,7 @@ export class LearningController {
   }
   
   // NEW AGGREGATE ENDPOINT
-  @Get('../dashboard/overview')
+  @Get('dashboard-overview')
   async getDashboardOverview(@Headers() headers: any) {
     const userId = this.getUserId(headers);
     const [stats, collections, todayReviews] = await Promise.all([
@@ -98,10 +98,12 @@ export class LearningController {
   }
 
   private async getStatsLogic(userId: string) {
-    const validWords = await this.vocabModel.find({ createdBy: userId }).select('_id').exec();
+    const validWords = await this.vocabModel.find().select('_id').exec();
+    console.log('validWords count:', validWords.length);
     const validWordIds = new Set(validWords.map(w => w._id.toString()));
 
     const allProgress = await this.progressModel.find({ userId }).exec();
+    console.log('allProgress count:', allProgress.length);
     
     // Auto-Healing logic from previous session is mostly obsolete if we use transactions, 
     // but we can still deduplicate and filter out orphans defensively.

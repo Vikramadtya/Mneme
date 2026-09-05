@@ -20,7 +20,7 @@ export class VocabularyController {
 
   @Get('me')
   async getMyVocabulary(@Headers() headers: any) {
-    return this.vocabModel.find({ createdBy: this.getUserId(headers) }).exec();
+    return this.vocabModel.find().exec();
   }
 
   @Get(':id')

@@ -54,7 +54,7 @@ export class AnalyticsController {
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     
     const logs = await this.reviewLogModel.find({ userId, reviewedAt: { $gte: thirtyDaysAgo } }).exec();
-    const words = await this.vocabModel.find({ createdBy: userId, createdAt: { $gte: thirtyDaysAgo } }).exec();
+    const words = await this.vocabModel.find({ createdAt: { $gte: thirtyDaysAgo } }).exec();
     
     const reviewsMap = new Map();
     const wordsMap = new Map();
@@ -87,7 +87,7 @@ export class AnalyticsController {
   }
 
   private async getConfidenceLogic(userId: string) {
-    const validWords = await this.vocabModel.find({ createdBy: userId }).select('_id').exec();
+    const validWords = await this.vocabModel.find().select('_id').exec();
     const validWordIds = new Set(validWords.map(w => w._id.toString()));
 
     const progressList = await this.progressModel.find({ userId }).exec();

@@ -1,7 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 
-@Schema({ collection: 'vocabulary_item', timestamps: true })
+@Schema({ collection: 'vocabulary', timestamps: true })
 export class VocabularyItem extends Document {
   @Prop({ required: true })
   word: string;
