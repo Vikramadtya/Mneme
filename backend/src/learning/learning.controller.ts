@@ -130,7 +130,7 @@ export class LearningController {
     let totalReviews = 0, successReviews = 0;
 
     for (const p of uniqueList) {
-      if (new Date(p.nextReviewAt) <= now) dueCount++;
+      if (new Date(p.nextReviewAt) <= now && p.state !== 'NEW') dueCount++;
       if (p.state === 'NEW') newCount++;
       if (p.state === 'LEARNING') learningCount++;
       if (p.state === 'GRADUATED') graduatedCount++;

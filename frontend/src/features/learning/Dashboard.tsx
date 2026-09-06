@@ -95,15 +95,15 @@ export function Dashboard() {
                 </div>
                 <h2 className="text-2xl font-bold mb-2">Today's Session</h2>
                 <p className="text-slate-500 max-w-sm">
-                  You have <strong className="text-slate-800">{isLoading ? '...' : dueCount} words</strong> scheduled for optimal memory retention today.
+                  You have <strong className="text-slate-800">{isLoading ? '...' : dueCount} words</strong> due for review and <strong className="text-slate-800">{isLoading ? '...' : newCount} new words</strong> to learn today.
                 </p>
               </div>
 
               <div className="mt-10 flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-4">
                 <button 
                   onClick={handleStartLearning}
-                  disabled={isError || dueCount === 0}
-                  className={`inline-flex items-center justify-center space-x-2 font-medium text-lg py-4 px-8 rounded-2xl transition-all shadow-md w-full sm:w-auto ${isError || dueCount === 0 ? 'bg-slate-300 text-slate-500 cursor-not-allowed' : 'bg-slate-900 hover:bg-slate-800 text-white hover:shadow-xl hover:shadow-slate-900/20 active:scale-95'}`}
+                  disabled={isError || (dueCount === 0 && newCount === 0)}
+                  className={`inline-flex items-center justify-center space-x-2 font-medium text-lg py-4 px-8 rounded-2xl transition-all shadow-md w-full sm:w-auto ${isError || (dueCount === 0 && newCount === 0) ? 'bg-slate-300 text-slate-500 cursor-not-allowed' : 'bg-slate-900 hover:bg-slate-800 text-white hover:shadow-xl hover:shadow-slate-900/20 active:scale-95'}`}
                 >
                   <span>Start Learning</span>
                   <ChevronRight className="w-5 h-5" />

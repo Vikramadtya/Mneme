@@ -10,7 +10,8 @@ import { VocabularyCollection } from './schemas/vocabulary-collection.schema.js'
 @UseGuards(AuthGuard)
 export class CollectionController {
   constructor(
-    @InjectModel(VocabularyCollection.name) private collectionModel: Model<VocabularyCollection>
+    @InjectModel(VocabularyCollection.name) private collectionModel: Model<VocabularyCollection>,
+    @InjectModel('VocabularyItem') private vocabModel: Model<any>
   ) {}
 
 
@@ -38,6 +39,12 @@ export class CollectionController {
 
   @Delete(':id')
   async deleteCollection(@Param('id') id: string) {
+    const col = await this.collectionModel.findById(id).exec();
+    if (col && col.wordIds && col.wordIds.length > 0) {
+        for (const wordId of col.wordIds) {
+            await this.vocabModel.findOneAndDelete({ _id: wordId }).exec();
+        }
+    }
     await this.collectionModel.findByIdAndDelete(id).exec();
     return { success: true };
   }
