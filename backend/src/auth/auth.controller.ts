@@ -1,4 +1,5 @@
-import { Controller, Get, Post, Body } from '@nestjs/common';
+import { Controller, Get, Post, Body, HttpException, HttpStatus } from '@nestjs/common';
+import axios from 'axios';
 
 @Controller('api/v1')
 export class AuthController {
@@ -10,16 +11,37 @@ export class AuthController {
 
   @Post('auth/login')
   async login(@Body() body: any) {
-    // In the old Java implementation, this verified the Google token.
-    // For now, we mock the success response to keep the frontend working if it skips real auth.
-    // The current frontend uses '0000-0000-0000-0000' dummy userId when no actual token is present.
-    return {
-      token: 'mock_jwt_token',
-      user: {
-        id: '0000-0000-0000-0000',
-        email: 'test@memoriser.local',
-        name: 'Test User'
-      }
-    };
+    if (!body || !body.token) {
+        throw new HttpException('Token is required', HttpStatus.BAD_REQUEST);
+    }
+
+    try {
+        // Fetch user profile from Google using the access token
+        const response = await axios.get('https://www.googleapis.com/oauth2/v3/userinfo', {
+            headers: {
+                Authorization: `Bearer ${body.token}`
+            }
+        });
+
+        const user = response.data;
+        if (!user || !user.sub) {
+            throw new Error('Invalid Google user data');
+        }
+
+        // Create a simple unverified JWT format since our backend currently just decodes it
+        const payload = Buffer.from(JSON.stringify({ sub: user.sub, email: user.email })).toString('base64');
+        const fakeJwt = `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.${payload}.signature`;
+
+        return {
+            access_token: fakeJwt, // The frontend expects this key!
+            user: {
+                id: user.sub,
+                email: user.email,
+                name: user.name
+            }
+        };
+    } catch (error: any) {
+        throw new HttpException('Failed to verify Google token: ' + error.message, HttpStatus.UNAUTHORIZED);
+    }
   }
 }
