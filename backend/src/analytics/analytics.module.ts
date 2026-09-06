@@ -5,6 +5,7 @@ import { ReviewLogSchema } from '../learning/schemas/review-log.schema.js';
 import { VocabularyItemSchema } from '../vocabulary/schemas/vocabulary-item.schema.js';
 import { VocabularyCollectionSchema } from '../vocabulary/schemas/vocabulary-collection.schema.js';
 import { AnalyticsController } from './analytics.controller.js';
+import { DataController } from './data.controller.js';
 
 @Module({
   imports: [
@@ -15,6 +16,6 @@ import { AnalyticsController } from './analytics.controller.js';
       { name: 'VocabularyCollection', schema: VocabularyCollectionSchema }
     ])
   ],
-  controllers: [AnalyticsController],
+  controllers: [AnalyticsController, DataController],
 })
 export class AnalyticsModule {}

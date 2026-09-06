@@ -12,6 +12,23 @@ export class AnalyticsController {
   ) {}
 
   private getUserId(headers: any): string {
+    const auth = headers['authorization'];
+    if (auth && auth.startsWith('Bearer ')) {
+      const token = auth.split(' ')[1];
+      try {
+        const payloadBase64 = token.split('.')[1];
+        if (payloadBase64) {
+          const payloadBuffer = Buffer.from(payloadBase64, 'base64');
+          const payload = JSON.parse(payloadBuffer.toString('utf8'));
+          if (payload && payload.sub) {
+            return payload.sub; // Google User ID
+          }
+        }
+      } catch (e) {
+        // ignore parsing errors
+      }
+    }
+    // Fallback for development if no token is provided
     return headers['x-user-id'] || '0000-0000-0000-0000';
   }
 

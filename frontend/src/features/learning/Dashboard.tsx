@@ -3,6 +3,8 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useDashboardOverview } from './api'
 import { BookOpen, Brain, Clock, ChevronRight, Activity, AlertCircle, Target, Award, Layers } from 'lucide-react'
 import { AnalyticsDashboard } from '../analytics/AnalyticsDashboard'
+import { exportData, importData } from './dataApi'
+import { Download, Upload } from 'lucide-react'
 
 export function Dashboard() {
   const navigate = useNavigate();
@@ -176,6 +178,34 @@ export function Dashboard() {
         </div>
 
         <AnalyticsDashboard />
+
+      
+      {/* Account Data Management */}
+      <div className="mt-16 bg-white border border-slate-200 rounded-3xl p-8 shadow-sm">
+        <h2 className="text-xl font-bold mb-4 flex items-center space-x-2">
+           <Layers className="w-5 h-5 text-slate-500" />
+           <span>Account Data</span>
+        </h2>
+        <p className="text-slate-500 mb-6">Export your full vocabulary and progress history, or import a backup.</p>
+        
+        <div className="flex space-x-4">
+            <button onClick={exportData} className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-medium flex items-center space-x-2 transition-colors">
+                <Download className="w-4 h-4" />
+                <span>Export Backup</span>
+            </button>
+            <label className="px-5 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl font-medium flex items-center space-x-2 transition-colors cursor-pointer">
+                <Upload className="w-4 h-4" />
+                <span>Import & Overwrite</span>
+                <input type="file" accept=".json" className="hidden" onChange={(e) => {
+                    if (e.target.files && e.target.files.length > 0) {
+                        if (confirm('WARNING: This will wipe your current data and replace it with the backup. Continue?')) {
+                            importData(e.target.files[0]);
+                        }
+                    }
+                }} />
+            </label>
+        </div>
+      </div>
 
       </div>
     </div>
