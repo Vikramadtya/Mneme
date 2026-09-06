@@ -61,7 +61,7 @@ export function Dashboard() {
              </Link>
              <Link to="/vocabulary" className="text-sm font-semibold text-blue-600 bg-blue-50 px-4 py-2 rounded-xl hover:bg-blue-100 transition-colors">Vocabulary</Link>
              <button 
-               onClick={() => { localStorage.removeItem('isAuthenticated'); window.location.reload(); }}
+               onClick={() => { localStorage.removeItem('isAuthenticated'); localStorage.removeItem('access_token'); window.location.reload(); }}
                className="text-sm font-semibold text-slate-500 hover:text-slate-800 transition-colors ml-4"
              >
                Sign Out
