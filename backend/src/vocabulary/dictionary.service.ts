@@ -17,20 +17,26 @@ export class DictionaryService {
         const result = response.data[0];
         
         if (result.defs && result.defs.length > 0) {
-          item.definitions = result.defs.map((def: string) => {
+          const fetchedDefs = result.defs.map((def: string) => {
             const parts = def.split('\t');
             return parts.length > 1 ? parts[1] : def;
           });
           
-          item.meanings = [{
-            partOfSpeech: result.defs[0].split('\t')[0] || 'unknown',
-            definitions: [{
-              definition: item.definitions![0],
-              example: '',
-              synonyms: [],
-              antonyms: []
-            }]
-          }];
+          if (!item.definitions || item.definitions.length === 0 || (item.definitions.length === 1 && item.definitions[0] === '')) {
+            item.definitions = fetchedDefs;
+          }
+          
+          if (!item.meanings || item.meanings.length === 0) {
+            item.meanings = [{
+              partOfSpeech: result.defs[0].split('\t')[0] || 'unknown',
+              definitions: [{
+                definition: fetchedDefs[0],
+                example: '',
+                synonyms: [],
+                antonyms: []
+              }]
+            }];
+          }
         }
         
         if (result.tags) {
