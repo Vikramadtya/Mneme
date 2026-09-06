@@ -1,3 +1,6 @@
+import { UseGuards } from '@nestjs/common';
+import { AuthGuard } from '../auth/auth.guard.js';
+import { UserId } from '../auth/user.decorator.js';
 import { Controller, Get, Post, Put, Delete, Body, Param, Query, Headers, HttpException, HttpStatus } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
@@ -6,6 +9,7 @@ import { VocabularyCollection } from './schemas/vocabulary-collection.schema.js'
 import { DictionaryService } from './dictionary.service.js';
 
 @Controller('api/v1/vocabulary')
+@UseGuards(AuthGuard)
 export class VocabularyController {
   constructor(
     @InjectModel(VocabularyItem.name) private vocabModel: Model<VocabularyItem>,
@@ -14,30 +18,11 @@ export class VocabularyController {
     private dictionaryService: DictionaryService
   ) {}
 
-  private getUserId(headers: any): string {
-    const auth = headers['authorization'];
-    if (auth && auth.startsWith('Bearer ')) {
-      const token = auth.split(' ')[1];
-      try {
-        const payloadBase64 = token.split('.')[1];
-        if (payloadBase64) {
-          const payloadBuffer = Buffer.from(payloadBase64, 'base64');
-          const payload = JSON.parse(payloadBuffer.toString('utf8'));
-          if (payload && payload.sub) {
-            return payload.sub; // Google User ID
-          }
-        }
-      } catch (e) {
-        // ignore parsing errors
-      }
-    }
-    // Fallback for development if no token is provided
-    return headers['x-user-id'] || '0000-0000-0000-0000';
-  }
+
 
   @Get('me')
-  async getMyVocabulary(@Headers() headers: any) {
-    return this.vocabModel.find().exec();
+  async getMyVocabulary(@UserId() userId: string) {
+    return this.vocabModel.find({ createdBy: userId }).exec();
   }
 
   @Get(':id')
@@ -46,8 +31,7 @@ export class VocabularyController {
   }
 
   @Post()
-  async addWord(@Body() body: any, @Query('collectionId') collectionId: string, @Headers() headers: any) {
-    const userId = this.getUserId(headers);
+  async addWord(@Body() body: any, @Query('collectionId') collectionId: string, @UserId() userId: string) {
     let item = { ...body, createdBy: userId };
     item = await this.dictionaryService.fetchWordDetails(item);
     
@@ -67,7 +51,7 @@ export class VocabularyController {
         userId,
         wordId: savedItem._id.toString(),
         state: 'NEW',
-        difficulty: 5.0,
+        difficulty: 2.5,
         stability: 0.0,
         nextReviewAt: new Date(),
         reviewCount: 0,

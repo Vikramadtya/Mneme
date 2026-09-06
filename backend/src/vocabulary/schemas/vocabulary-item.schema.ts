@@ -54,11 +54,11 @@ VocabularyItemSchema.pre('findOneAndDelete', async function () {
   const docToUpdate = await this.model.findOne(this.getQuery());
   if (docToUpdate) {
     // Access the Mongoose connection to delete from other collections
-    await docToUpdate.db.collection('user_word_progress').deleteMany({ wordId: docToUpdate._id.toString() });
-    await docToUpdate.db.collection('review_logs').deleteMany({ wordId: docToUpdate._id.toString() });
+    await docToUpdate.db.model('UserWordProgress').deleteMany({ wordId: docToUpdate._id.toString() });
+    await docToUpdate.db.model('ReviewLog').deleteMany({ wordId: docToUpdate._id.toString() });
     
     // Also remove this wordId from any collections it belongs to
-    await docToUpdate.db.collection('collections').updateMany(
+    await docToUpdate.db.model('VocabularyCollection').updateMany(
       { wordIds: docToUpdate._id.toString() },
       { $pull: { wordIds: docToUpdate._id.toString() } }
     );

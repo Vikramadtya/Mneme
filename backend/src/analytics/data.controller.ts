@@ -1,8 +1,12 @@
+import { UseGuards } from '@nestjs/common';
+import { AuthGuard } from '../auth/auth.guard.js';
+import { UserId } from '../auth/user.decorator.js';
 import { Controller, Get, Post, Body, Headers, HttpException, HttpStatus } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 
 @Controller('api/v1/data')
+@UseGuards(AuthGuard)
 export class DataController {
   constructor(
     @InjectModel('VocabularyItem') private vocabModel: Model<any>,
@@ -30,8 +34,7 @@ export class DataController {
   }
 
   @Get('export')
-  async exportData(@Headers() headers: any) {
-    const userId = this.getUserId(headers);
+  async exportData(@UserId() userId: string) {
     const [vocabulary, collections, progress, logs] = await Promise.all([
       this.vocabModel.find({ createdBy: userId }).exec(),
       this.collectionModel.find({ userId }).exec(),
@@ -47,8 +50,7 @@ export class DataController {
   }
 
   @Post('import')
-  async importData(@Body() body: any, @Headers() headers: any) {
-    const userId = this.getUserId(headers);
+  async importData(@Body() body: any, @UserId() userId: string) {
     if (!body || !body.data || body.version !== 1) {
       throw new HttpException('Invalid backup file format', HttpStatus.BAD_REQUEST);
     }

@@ -1,8 +1,12 @@
+import { UseGuards } from '@nestjs/common';
+import { AuthGuard } from '../auth/auth.guard.js';
+import { UserId } from '../auth/user.decorator.js';
 import { Controller, Get, Headers } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 
 @Controller('api/v1/analytics')
+@UseGuards(AuthGuard)
 export class AnalyticsController {
   constructor(
     @InjectModel('ReviewLog') private reviewLogModel: Model<any>,
@@ -11,47 +15,27 @@ export class AnalyticsController {
     @InjectModel('VocabularyCollection') private collectionModel: Model<any>
   ) {}
 
-  private getUserId(headers: any): string {
-    const auth = headers['authorization'];
-    if (auth && auth.startsWith('Bearer ')) {
-      const token = auth.split(' ')[1];
-      try {
-        const payloadBase64 = token.split('.')[1];
-        if (payloadBase64) {
-          const payloadBuffer = Buffer.from(payloadBase64, 'base64');
-          const payload = JSON.parse(payloadBuffer.toString('utf8'));
-          if (payload && payload.sub) {
-            return payload.sub; // Google User ID
-          }
-        }
-      } catch (e) {
-        // ignore parsing errors
-      }
-    }
-    // Fallback for development if no token is provided
-    return headers['x-user-id'] || '0000-0000-0000-0000';
-  }
+
 
   // The original endpoints
   @Get('activity')
-  async getActivity(@Headers() headers: any) {
-    return this.getActivityLogic(this.getUserId(headers));
+  async getActivity(@UserId() userId: string) {
+    return this.getActivityLogic(userId);
   }
 
   @Get('confidence')
-  async getConfidence(@Headers() headers: any) {
-    return this.getConfidenceLogic(this.getUserId(headers));
+  async getConfidence(@UserId() userId: string) {
+    return this.getConfidenceLogic(userId);
   }
 
   @Get('collections')
-  async getCollectionsAnalytics(@Headers() headers: any) {
-    return this.getCollectionsAnalyticsLogic(this.getUserId(headers));
+  async getCollectionsAnalytics(@UserId() userId: string) {
+    return this.getCollectionsAnalyticsLogic(userId);
   }
 
   // NEW AGGREGATE ENDPOINT
   @Get('summary')
-  async getSummary(@Headers() headers: any) {
-    const userId = this.getUserId(headers);
+  async getSummary(@UserId() userId: string) {
     const [activityData, confidence, collections] = await Promise.all([
       this.getActivityLogic(userId),
       this.getConfidenceLogic(userId),
@@ -71,7 +55,7 @@ export class AnalyticsController {
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     
     const logs = await this.reviewLogModel.find({ userId, reviewedAt: { $gte: thirtyDaysAgo } }).exec();
-    const words = await this.vocabModel.find({ createdAt: { $gte: thirtyDaysAgo } }).exec();
+    const words = await this.vocabModel.find({ createdBy: userId, createdAt: { $gte: thirtyDaysAgo } }).exec();
     
     const reviewsMap = new Map();
     const wordsMap = new Map();
@@ -104,7 +88,7 @@ export class AnalyticsController {
   }
 
   private async getConfidenceLogic(userId: string) {
-    const validWords = await this.vocabModel.find().select('_id').exec();
+    const validWords = await this.vocabModel.find({ createdBy: userId }).select('_id').exec();
     const validWordIds = new Set(validWords.map(w => w._id.toString()));
 
     const progressList = await this.progressModel.find({ userId }).exec();

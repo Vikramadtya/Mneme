@@ -1,3 +1,6 @@
+import { UseGuards } from '@nestjs/common';
+import { AuthGuard } from '../auth/auth.guard.js';
+import { UserId } from '../auth/user.decorator.js';
 import { Controller, Get, Post, Body, Param, Query, Headers } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
@@ -6,6 +9,7 @@ import { ReviewLog } from './schemas/review-log.schema.js';
 import { SpacedRepetitionService } from './spaced-repetition.service.js';
 
 @Controller('api/v1/learning')
+@UseGuards(AuthGuard)
 export class LearningController {
   constructor(
     @InjectModel(UserWordProgress.name) private progressModel: Model<UserWordProgress>,
@@ -15,30 +19,10 @@ export class LearningController {
     private srsService: SpacedRepetitionService
   ) {}
 
-  private getUserId(headers: any): string {
-    const auth = headers['authorization'];
-    if (auth && auth.startsWith('Bearer ')) {
-      const token = auth.split(' ')[1];
-      try {
-        const payloadBase64 = token.split('.')[1];
-        if (payloadBase64) {
-          const payloadBuffer = Buffer.from(payloadBase64, 'base64');
-          const payload = JSON.parse(payloadBuffer.toString('utf8'));
-          if (payload && payload.sub) {
-            return payload.sub; // Google User ID
-          }
-        }
-      } catch (e) {
-        // ignore parsing errors
-      }
-    }
-    // Fallback for development if no token is provided
-    return headers['x-user-id'] || '0000-0000-0000-0000';
-  }
+
 
   @Post(':wordId/review')
-  async submitReview(@Param('wordId') wordId: string, @Body('grade') grade: number, @Headers() headers: any) {
-    const userId = this.getUserId(headers);
+  async submitReview(@Param('wordId') wordId: string, @Body('grade') grade: number, @UserId() userId: string) {
     let progress = await this.progressModel.findOne({ userId, wordId }).exec();
     
     if (!progress) {
@@ -56,22 +40,29 @@ export class LearningController {
   
   // The old endpoints that FE used
   @Get('today')
-  async getTodayReviews(@Query('collectionId') collectionId: string, @Headers() headers: any) {
-    return this.getDueReviewsLogic(this.getUserId(headers), collectionId);
+  async getTodayReviews(@Query('collectionId') collectionId: string, @UserId() userId: string) {
+    return this.getDueReviewsLogic(userId, collectionId);
   }
 
   @Get('stats')
-  async getStats(@Headers() headers: any) {
-    return this.getStatsLogic(this.getUserId(headers));
+  async getStats(@UserId() userId: string) {
+    return this.getStatsLogic(userId);
   }
   
   // NEW AGGREGATE ENDPOINT
-  @Get('dashboard-overview')
-  async getDashboardOverview(@Headers() headers: any) {
-    const userId = this.getUserId(headers);
-    const [stats, collections, todayReviews] = await Promise.all([
+@Get('dashboard-overview')
+  async getDashboardOverview(@UserId() userId: string) {
+    let collections = await this.collectionModel.find({ userId }).exec();
+    
+    // BUG FIX: Auto-create Inbox on first login
+    if (!collections || collections.length === 0) {
+        const inbox = new this.collectionModel({ name: 'Inbox', userId, wordIds: [] });
+        await inbox.save();
+        collections = [inbox];
+    }
+
+    const [stats, todayReviews] = await Promise.all([
       this.getStatsLogic(userId),
-      this.collectionModel.find({ userId }).exec(),
       this.getDueReviewsLogic(userId, null)
     ]);
     
@@ -115,7 +106,7 @@ export class LearningController {
   }
 
   private async getStatsLogic(userId: string) {
-    const validWords = await this.vocabModel.find().select('_id').exec();
+    const validWords = await this.vocabModel.find({ createdBy: userId }).select('_id').exec();
     console.log('validWords count:', validWords.length);
     const validWordIds = new Set(validWords.map(w => w._id.toString()));
 
