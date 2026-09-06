@@ -170,11 +170,18 @@ export function VocabularyManager() {
     }
     
     // 3. Sort
-    return [...result].sort((a, b) => {
+        return [...result].sort((a, b) => {
+      if (groupByDate) {
+         const dateA = new Date(a.createdAt || 0).toDateString();
+         const dateB = new Date(b.createdAt || 0).toDateString();
+         if (dateA !== dateB) {
+            return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+         }
+      }
       if (sortBy === 'name') return a.word.localeCompare(b.word);
       return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
     });
-  }, [words, collections, searchTerm, sortBy, collectionFilter]);
+  }, [words, collections, searchTerm, sortBy, collectionFilter, groupByDate]);
 
   return (
     <div className="min-h-screen bg-slate-50 p-8 font-sans text-slate-800">
@@ -328,12 +335,10 @@ export function VocabularyManager() {
                   </div>
                 </div>
                 
-                {sortBy === 'date' && (
-                  <label className="flex items-center space-x-2 text-sm text-slate-600 cursor-pointer ml-4">
+                <label className="flex items-center space-x-2 text-sm text-slate-600 cursor-pointer ml-4">
                     <input type="checkbox" checked={groupByDate} onChange={e => setGroupByDate(e.target.checked)} className="rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
                     <span>Group by Day</span>
                   </label>
-                )}
                 </div>
               )}
 
@@ -373,7 +378,7 @@ export function VocabularyManager() {
                 
                 let showSeparator = false;
                 let dateString = '';
-                if (groupByDate && sortBy === 'date') {
+                if (groupByDate) {
                     const wordDate = new Date(word.createdAt || 0).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
                     const prevWord = index > 0 ? filteredAndSortedWords[index - 1] : null;
                     const prevDate = prevWord ? new Date(prevWord.createdAt || 0).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' }) : '';
