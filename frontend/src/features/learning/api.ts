@@ -25,7 +25,7 @@ export function useTodaysReviews(collectionId?: string | null) {
 export function useDashboardOverview() {
   return useQuery<any>({
     queryKey: ['dashboard', 'overview'],
-    queryFn: () => fetchApi('/dashboard/overview')
+    queryFn: () => fetchApi('/learning/dashboard-overview')
   });
 }
 
