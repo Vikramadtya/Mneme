@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useMyVocabulary, useAddVocabulary, useUpdateVocabulary, useDeleteVocabulary, useCollections } from './api';
 import { fetchApi } from '../../api/client';
 import { Plus, Search, Filter, Edit2, Trash2, X, Wand2, Loader2, Layers } from 'lucide-react';
@@ -17,6 +17,7 @@ export function VocabularyManager() {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<'name' | 'date'>('date');
+  const [groupByDate, setGroupByDate] = useState<boolean>(true);
   const [collectionFilter, setCollectionFilter] = useState<string>('all');
   
   const [showAddForm, setShowAddForm] = useState(false);
@@ -169,7 +170,7 @@ export function VocabularyManager() {
     }
     
     // 3. Sort
-    return result.sort((a, b) => {
+    return [...result].sort((a, b) => {
       if (sortBy === 'name') return a.word.localeCompare(b.word);
       return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
     });
@@ -322,10 +323,17 @@ export function VocabularyManager() {
                       <option value="all">Global (All Words)</option>
                       {collections.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                     </select>
-                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-500">
-                      <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
-                    </div>
+                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-500">
+                    <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
                   </div>
+                </div>
+                
+                {sortBy === 'date' && (
+                  <label className="flex items-center space-x-2 text-sm text-slate-600 cursor-pointer ml-4">
+                    <input type="checkbox" checked={groupByDate} onChange={e => setGroupByDate(e.target.checked)} className="rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
+                    <span>Group by Day</span>
+                  </label>
+                )}
                 </div>
               )}
 
@@ -359,11 +367,30 @@ export function VocabularyManager() {
                 <button onClick={() => handleOpenAdd()} className="text-blue-600 font-medium hover:underline">Add a new word</button>
               </div>
             ) : (
-              filteredAndSortedWords.map(word => {
+              filteredAndSortedWords.map((word, index) => {
                 // Find collection name for display
                 const col = collections?.find(c => c.wordIds && c.wordIds.includes(word.id));
+                
+                let showSeparator = false;
+                let dateString = '';
+                if (groupByDate && sortBy === 'date') {
+                    const wordDate = new Date(word.createdAt || 0).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+                    const prevWord = index > 0 ? filteredAndSortedWords[index - 1] : null;
+                    const prevDate = prevWord ? new Date(prevWord.createdAt || 0).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' }) : '';
+                    if (wordDate !== prevDate) {
+                        showSeparator = true;
+                        dateString = wordDate;
+                    }
+                }
+
                 return (
-                  <div key={word.id} className="p-6 hover:bg-slate-50 transition-colors flex justify-between items-center group relative">
+                  <React.Fragment key={word.id}>
+                    {showSeparator && (
+                        <div className="px-6 py-2 bg-slate-50 text-xs font-bold text-slate-500 uppercase tracking-widest border-t border-slate-100">
+                           {dateString}
+                        </div>
+                    )}
+                  <div className="p-6 hover:bg-slate-50 transition-colors flex justify-between items-center group relative">
                     
                     {/* Clickable Word Details Link */}
                     <Link to={`/vocabulary/${word.id}`} className="flex-1 min-w-0 pr-4 outline-none">
@@ -425,6 +452,7 @@ export function VocabularyManager() {
 
                     </div>
                   </div>
+                  </React.Fragment>
                 );
               })
             )}
