@@ -35,7 +35,7 @@ export class DictionaryService {
         
         if (result.tags) {
           const pronunciationTag = result.tags.find((t: string) => t.startsWith('pron:'));
-          if (pronunciationTag) {
+          if (pronunciationTag && !item.pronunciation) {
             item.pronunciation = pronunciationTag.substring(5);
           }
         }
