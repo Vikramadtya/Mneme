@@ -24,7 +24,7 @@ export function useServerWakeup() {
         
         if (res.ok) {
           if (toastId.current) {
-            toast.success('Backend server is ready!', { id: toastId.current });
+            toast.success('Backend server is ready!', { id: toastId.current, duration: 4000 });
             toastId.current = null;
           }
         } else {
@@ -48,7 +48,7 @@ export function useServerWakeup() {
           const res = await fetch(`${API_BASE_URL}/health`, { method: 'GET' });
           if (res.ok) {
             clearInterval(interval);
-            toast.success('Backend server is ready!', { id: toastId.current! });
+            toast.success('Backend server is ready!', { id: toastId.current!, duration: 4000 });
             toastId.current = null;
           }
         } catch (e) {
