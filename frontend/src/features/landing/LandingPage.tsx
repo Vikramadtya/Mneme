@@ -1,17 +1,12 @@
 import { Sparkles, BookOpen, Repeat, Layers, ChevronRight } from 'lucide-react';
 import { useGoogleLogin } from '@react-oauth/google';
 import { API_BASE_URL } from '../../api/client';
-import { useEffect } from 'react';
+
 import toast from 'react-hot-toast';
 
 export function LandingPage() {
 
-  useEffect(() => {
-    // Ping the backend health endpoint to spin up the server (e.g. Render cold start)
-    fetch(`${API_BASE_URL}/health`).catch(() => {});
-  }, []);
-    
-  const handleLogin = useGoogleLogin({
+const handleLogin = useGoogleLogin({
       onSuccess: async (tokenResponse) => {
           const loadingToast = toast.loading('Signing in...');
           try {

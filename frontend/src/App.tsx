@@ -7,7 +7,10 @@ import { SpeedInsights } from '@vercel/speed-insights/react'
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || 'mock-client-id';
 
+import { useServerWakeup } from './app/hooks/useServerWakeup'
+
 export default function App() {
+  useServerWakeup();
   return (
     <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
       <QueryProvider>
