@@ -135,7 +135,7 @@ export class LearningController {
       if (p.state === 'LEARNING') learningCount++;
       if (p.state === 'GRADUATED') graduatedCount++;
       
-      totalReviews += p.reviewCount || 0;
+      totalReviews += (p.successCount || 0) + (p.failureCount || 0);
       successReviews += p.successCount || 0;
     }
 

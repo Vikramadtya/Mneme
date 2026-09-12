@@ -128,7 +128,7 @@ export class AnalyticsController {
       for (const wid of wordIds) {
         const p = progressMap.get(wid);
         if (p) {
-          totalReviews += p.reviewCount || 0;
+          totalReviews += (p.successCount || 0) + (p.failureCount || 0);
           successReviews += p.successCount || 0;
         }
       }
