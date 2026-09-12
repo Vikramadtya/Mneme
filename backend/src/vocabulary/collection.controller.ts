@@ -28,24 +28,24 @@ export class CollectionController {
   }
 
   @Put(':id')
-  async updateCollection(@Param('id') id: string, @Body() body: any) {
-    return this.collectionModel.findByIdAndUpdate(id, body, { new: true }).exec();
+  async updateCollection(@Param('id') id: string, @Body() body: any, @UserId() userId: string) {
+    return this.collectionModel.findOneAndUpdate({ _id: id, userId: userId }, body, { new: true }).exec();
   }
 
   @Put(':id/words')
-  async updateWords(@Param('id') id: string, @Body() body: { wordIds: string[] }) {
-    return this.collectionModel.findByIdAndUpdate(id, { wordIds: body.wordIds }, { new: true }).exec();
+  async updateWords(@Param('id') id: string, @Body() body: { wordIds: string[] }, @UserId() userId: string) {
+    return this.collectionModel.findOneAndUpdate({ _id: id, userId: userId }, { wordIds: body.wordIds }, { new: true }).exec();
   }
 
   @Delete(':id')
-  async deleteCollection(@Param('id') id: string) {
-    const col = await this.collectionModel.findById(id).exec();
+  async deleteCollection(@Param('id') id: string, @UserId() userId: string) {
+    const col = await this.collectionModel.findOne({ _id: id, userId: userId }).exec();
     if (col && col.wordIds && col.wordIds.length > 0) {
         for (const wordId of col.wordIds) {
-            await this.vocabModel.findOneAndDelete({ _id: wordId }).exec();
+            await this.vocabModel.findOneAndDelete({ _id: wordId, createdBy: userId }).exec();
         }
     }
-    await this.collectionModel.findByIdAndDelete(id).exec();
+    await this.collectionModel.findOneAndDelete({ _id: id, userId: userId }).exec();
     return { success: true };
   }
 }

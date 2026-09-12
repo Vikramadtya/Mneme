@@ -26,8 +26,8 @@ export class VocabularyController {
   }
 
   @Get(':id')
-  async getWord(@Param('id') id: string) {
-    return this.vocabModel.findById(id).exec();
+  async getWord(@Param('id') id: string, @UserId() userId: string) {
+    return this.vocabModel.findOne({ _id: id, createdBy: userId }).exec();
   }
 
   @Post()
@@ -87,14 +87,14 @@ export class VocabularyController {
   }
 
   @Put(':id')
-  async updateWord(@Param('id') id: string, @Body() body: any) {
-    return this.vocabModel.findByIdAndUpdate(id, body, { new: true }).exec();
+  async updateWord(@Param('id') id: string, @Body() body: any, @UserId() userId: string) {
+    return this.vocabModel.findOneAndUpdate({ _id: id, createdBy: userId }, body, { new: true }).exec();
   }
 
   @Delete(':id')
-  async deleteWord(@Param('id') id: string) {
+  async deleteWord(@Param('id') id: string, @UserId() userId: string) {
     // The pre('findOneAndDelete') hook on VocabularyItemSchema will cascade delete the progress!
-    await this.vocabModel.findOneAndDelete({ _id: id }).exec();
+    await this.vocabModel.findOneAndDelete({ _id: id, createdBy: userId }).exec();
     return { success: true };
   }
 }
