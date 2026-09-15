@@ -62,7 +62,7 @@ export class VocabularyController {
       
       // Update collections
       let targetCollection = collectionId ? 
-        await this.collectionModel.findById(collectionId) : 
+        await this.collectionModel.findOne({ _id: collectionId, userId }) : 
         await this.collectionModel.findOne({ userId, name: { $regex: /^Inbox$/i } });
         
       if (!targetCollection && !collectionId) {

@@ -12,7 +12,7 @@ export class UserWordProgress extends Document {
   @Prop({ default: 'NEW' })
   state: string;
 
-  @Prop({ default: 5.0 })
+  @Prop({ default: 2.5 })
   difficulty: number;
 
   @Prop({ default: 0.0 })

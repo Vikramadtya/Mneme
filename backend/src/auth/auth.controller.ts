@@ -17,7 +17,7 @@ export class AuthController {
 
     try {
         // Fetch user profile from Google using the access token
-        const response = await axios.get('https://www.googleapis.com/oauth2/v3/userinfo', {
+        const response = await axios.get('https://www.googleapis.com/oauth2/v3/userinfo', { timeout: 5000,
             headers: {
                 Authorization: `Bearer ${body.token}`
             }

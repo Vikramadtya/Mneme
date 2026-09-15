@@ -23,11 +23,14 @@ export class LearningController {
 
   @Post(':wordId/review')
   async submitReview(@Param('wordId') wordId: string, @Body('grade') grade: number, @UserId() userId: string) {
+    if (typeof grade !== 'number' || grade < 0 || grade > 5 || isNaN(grade)) {
+       throw new Error('Invalid grade');
+    }
     let progress = await this.progressModel.findOne({ userId, wordId }).exec();
     
     if (!progress) {
       progress = new this.progressModel({
-        userId, wordId, state: 'NEW', difficulty: 5.0, stability: 0.0, reviewCount: 0, successCount: 0, failureCount: 0
+        userId, wordId, state: 'NEW', difficulty: 2.5, stability: 0.0, reviewCount: 0, successCount: 0, failureCount: 0
       });
     }
 
@@ -92,12 +95,18 @@ export class LearningController {
       if (collection && collection.wordIds) {
         const allowed = new Set(collection.wordIds);
         filteredProgress = uniqueProgress.filter(p => allowed.has(p.wordId));
+      } else {
+        filteredProgress = []; // Fail closed if collection is invalid or empty
       }
     }
 
+    const wordIds = filteredProgress.map(p => p.wordId);
+    const vocabItems = await this.vocabModel.find({ _id: { $in: wordIds } }).lean().exec();
+    const vocabMap = new Map(vocabItems.map(v => [v._id.toString(), v]));
+    
     const reviews = [];
     for (const progress of filteredProgress) {
-      const vocabulary = await this.vocabModel.findById(progress.wordId).exec();
+      const vocabulary = vocabMap.get(progress.wordId);
       if (vocabulary) {
         reviews.push({ progress, vocabulary });
       }

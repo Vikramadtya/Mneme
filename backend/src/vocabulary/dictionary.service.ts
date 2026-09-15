@@ -11,7 +11,7 @@ export class DictionaryService {
     if (!item.word) return item;
     
     try {
-      const response = await axios.get(`${this.DATAMUSE_API_URL}?sp=${encodeURIComponent(item.word)}&md=dpfrs&max=1`);
+      const response = await axios.get(`${this.DATAMUSE_API_URL}?sp=${encodeURIComponent(item.word)}&md=dpfrs&max=1`, { timeout: 5000 });
       
       if (response.data && response.data.length > 0) {
         const result = response.data[0];
