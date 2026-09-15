@@ -88,7 +88,7 @@ export class LearningController {
     
     let filteredProgress = uniqueProgress;
     if (collectionId) {
-      const collection = await this.collectionModel.findById(collectionId).exec();
+      const collection = await this.collectionModel.findOne({ _id: collectionId, userId }).exec();
       if (collection && collection.wordIds) {
         const allowed = new Set(collection.wordIds);
         filteredProgress = uniqueProgress.filter(p => allowed.has(p.wordId));
@@ -107,11 +107,9 @@ export class LearningController {
 
   private async getStatsLogic(userId: string) {
     const validWords = await this.vocabModel.find({ createdBy: userId }).select('_id').exec();
-    console.log('validWords count:', validWords.length);
     const validWordIds = new Set(validWords.map(w => w._id.toString()));
 
     const allProgress = await this.progressModel.find({ userId }).exec();
-    console.log('allProgress count:', allProgress.length);
     
     // Auto-Healing logic from previous session is mostly obsolete if we use transactions, 
     // but we can still deduplicate and filter out orphans defensively.
