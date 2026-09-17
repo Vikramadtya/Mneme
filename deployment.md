@@ -25,8 +25,9 @@ This guide details how to deploy the Memoriser application across three speciali
 3. Configure the service:
    - **Name:** `memoriser-api`
    - **Root Directory:** `backend` (Crucial!)
-   - **Environment:** `Docker` (Render will automatically detect the Micronaut `Dockerfile` if you have one, OR you can use Native Java).
-     *Note: We will provide a `Dockerfile` for the backend to ensure a smooth deployment.*
+   - **Environment:** `Docker` (Render will automatically use Node.js). Use `Node` environment.
+   - **Build Command:** `npm install && npm run build`
+   - **Start Command:** `npm run start:prod`
 4. **Environment Variables:**
    - Add `MONGO_URI` and paste the MongoDB connection string from Step 1.
    - Add `memoriser.auth.mock-user-id` = `0000-0000-0000-0000` (or leave it out to use the default).
@@ -56,3 +57,24 @@ Every time you push code to `main` or open a Pull Request:
 2. `ci-backend.yml`: Compiles the NestJS backend to ensure no build failures.
 
 *Note: You do not need GitHub Actions for the actual Deployment. Vercel and Render natively integrate with GitHub and will automatically deploy whenever code is pushed to `main`.*
+
+
+---
+
+## 5. Observability & Tracing (Free Tier via Sentry)
+The application has been fully instrumented with end-to-end distributed tracing, performance metrics, and error logging using **Sentry**. When a user clicks a button on the frontend, a unique Trace ID is generated and passed down through the API to the backend database queries, allowing you to see the complete lifecycle of any user action.
+
+This is 100% free using Sentry's Developer tier (10k errors, 10k traces, and session replays free per month). 
+
+**Setup Instructions:**
+1. Create a free account at [Sentry.io](https://sentry.io/).
+2. Create two projects: one for **React** (Frontend) and one for **Node.js** (Backend).
+3. Sentry will give you a unique `DSN` URL for both projects.
+
+**Configuration:**
+If these environment variables are missing, the application will simply disable tracing and gracefully fall back to standard console logging without crashing.
+
+*   **Frontend (Vercel):** Add `VITE_SENTRY_DSN` to your Vercel Environment Variables.
+*   **Backend (Render):** Add `SENTRY_DSN` to your Render Environment Variables. 
+
+*Note: The backend also runs a custom `LoggerInterceptor` that injects the Sentry Trace ID into your standard Render stdout logs. This means even if you don't use the Sentry dashboard, your Render logs will look like `[Trace: e4a3b2...] GET /api/v1/learning/dashboard-overview 200 - 45ms`.*
