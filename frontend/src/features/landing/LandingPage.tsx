@@ -14,7 +14,11 @@ export function LandingPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ credential: response.credential }),
       });
-      if (!res.ok) throw new Error('Failed to login with backend');
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        const detail = Array.isArray(body?.message) ? body.message.join(', ') : body?.message;
+        throw new Error(`${detail ?? 'Failed to login with backend'} (${res.status})`);
+      }
       setToken((await res.json()).access_token);
       toast.success('Successfully logged in!', { id: loadingToast });
       window.location.reload();
