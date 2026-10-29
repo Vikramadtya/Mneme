@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { useMyVocabulary, useAddVocabulary, useUpdateVocabulary, useDeleteVocabulary, useCollections } from './api';
+import { useMyVocabulary, useAddVocabulary, useUpdateVocabulary, useDeleteVocabulary, useCollections, type VocabularyCollection } from './api';
 import { fetchApi } from '../../api/client';
 import { Plus, Search, Filter, Edit2, Trash2, X, Wand2, Loader2, Layers } from 'lucide-react';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
@@ -14,6 +14,13 @@ export function VocabularyManager() {
   
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+
+  // word id -> collection, built once instead of scanning every collection for every row
+  const collectionByWord = useMemo(() => {
+    const map = new Map<string, VocabularyCollection>();
+    for (const c of collections ?? []) for (const id of c.wordIds ?? []) map.set(id, c);
+    return map;
+  }, [collections]);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<'name' | 'date'>('date');
@@ -83,12 +90,7 @@ export function VocabularyManager() {
     setFormPronunciation(word.pronunciation || '');
     
     // Find which collection this word belongs to
-    let currentColId = '';
-    if (collections) {
-        const col = collections.find(c => c.wordIds && c.wordIds.includes(word.id));
-        if (col) currentColId = col.id;
-    }
-    setFormCollectionId(currentColId);
+    setFormCollectionId(collectionByWord.get(word.id)?.id ?? '');
     
     setDictionaryError('');
     setShowAddForm(true);
@@ -374,7 +376,7 @@ export function VocabularyManager() {
             ) : (
               filteredAndSortedWords.map((word, index) => {
                 // Find collection name for display
-                const col = collections?.find(c => c.wordIds && c.wordIds.includes(word.id));
+                const col = collectionByWord.get(word.id);
                 
                 let showSeparator = false;
                 let dateString = '';

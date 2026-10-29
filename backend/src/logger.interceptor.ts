@@ -1,7 +1,7 @@
-import { Injectable, NestInterceptor, ExecutionContext, CallHandler, Logger } from '@nestjs/common';
+import { CallHandler, ExecutionContext, HttpException, Injectable, Logger, NestInterceptor } from '@nestjs/common';
+import * as Sentry from '@sentry/node';
 import { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
-import * as Sentry from '@sentry/node';
 
 @Injectable()
 export class LoggerInterceptor implements NestInterceptor {
@@ -9,32 +9,21 @@ export class LoggerInterceptor implements NestInterceptor {
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
     const req = context.switchToHttp().getRequest();
-    const { method, originalUrl } = req;
-    
-    // Extract Sentry Trace ID if available
-    const traceparent = req.headers['sentry-trace'];
-    let traceId = 'no-trace';
-    if (traceparent && typeof traceparent === 'string') {
-        traceId = traceparent.split('-')[1] || traceparent;
-    }
-
-    const startTime = Date.now();
+    const res = context.switchToHttp().getResponse();
+    const sentryTrace = req.headers['sentry-trace'];
+    const traceId = typeof sentryTrace === 'string' ? sentryTrace.split('-')[0] : 'no-trace';
+    const startedAt = Date.now();
+    const line = (status: number | string) =>
+      `[Trace: ${traceId}] ${req.method} ${req.originalUrl.split('?')[0]} ${status} - ${Date.now() - startedAt}ms`;
 
     return next.handle().pipe(
       tap({
-        next: (val: any) => {
-          const res = context.switchToHttp().getResponse();
-          const delay = Date.now() - startTime;
-          this.logger.log(`[Trace: ${traceId}] ${method} ${originalUrl} ${res.statusCode} - ${delay}ms`);
-        },
+        next: () => this.logger.log(line(res.statusCode)),
         error: (error: any) => {
-          const delay = Date.now() - startTime;
-          this.logger.error(`[Trace: ${traceId}] ${method} ${originalUrl} - FAILED - ${delay}ms`, error.stack);
-          
-          // Send to Sentry
-          if (process.env.SENTRY_DSN) {
-            Sentry.captureException(error);
-          }
+          const status = error instanceof HttpException ? error.getStatus() : 500;
+          if (status < 500) return this.logger.warn(line(status));
+          this.logger.error(line(status), error.stack);
+          if (process.env.SENTRY_DSN) Sentry.captureException(error);
         },
       }),
     );

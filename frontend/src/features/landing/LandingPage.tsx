@@ -1,43 +1,29 @@
-import { Sparkles, BookOpen, Repeat, Layers, ChevronRight } from 'lucide-react';
-import { useGoogleLogin } from '@react-oauth/google';
+import { Sparkles, BookOpen, Repeat, Layers } from 'lucide-react';
+import { GoogleLogin, type CredentialResponse } from '@react-oauth/google';
+import { setToken } from '../../api/auth';
 import { API_BASE_URL } from '../../api/client';
 
 import toast from 'react-hot-toast';
 
 export function LandingPage() {
+  const handleCredential = async (response: CredentialResponse) => {
+    const loadingToast = toast.loading('Signing in...');
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ credential: response.credential }),
+      });
+      if (!res.ok) throw new Error('Failed to login with backend');
+      setToken((await res.json()).access_token);
+      toast.success('Successfully logged in!', { id: loadingToast });
+      window.location.reload();
+    } catch (e) {
+      toast.error(`Login failed: ${e instanceof Error ? e.message : 'network error'}`, { id: loadingToast });
+    }
+  };
 
-const handleLogin = useGoogleLogin({
-      onSuccess: async (tokenResponse) => {
-          const loadingToast = toast.loading('Signing in...');
-          try {
-              const res = await fetch(`${API_BASE_URL}/auth/login`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ token: tokenResponse.access_token })
-              });
-              
-              if (res.ok) {
-                  const data = await res.json();
-                  localStorage.setItem('isAuthenticated', 'true');
-                  localStorage.setItem('access_token', data.access_token);
-                  toast.success('Successfully logged in!', { id: loadingToast });
-                  window.location.reload();
-              } else {
-                  const errData = await res.json().catch(() => ({}));
-                  const errorMsg = errData.error || 'Failed to login with backend';
-                  console.error(errorMsg);
-                  toast.error(`Login Error: ${errorMsg}`, { id: loadingToast });
-              }
-          } catch (e: any) {
-              console.error('Login error', e);
-              toast.error(`Network Error: ${e.message}`, { id: loadingToast });
-          }
-      },
-      onError: error => {
-          console.error('Google Login Error:', error);
-          toast.error('Google Login popup was closed or failed.');
-      }
-  });
+  const handleError = () => toast.error('Google login was closed or failed.');
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 overflow-hidden selection:bg-indigo-100 selection:text-indigo-900">
@@ -47,13 +33,7 @@ const handleLogin = useGoogleLogin({
           <img src="/brain-svgrepo-com.svg" alt="Memoriser Logo" className="w-10 h-10" />
           <span className="font-extrabold text-2xl tracking-tight text-slate-800">Memoriser</span>
         </div>
-        <button 
-          onClick={() => handleLogin()}
-          className="bg-white border border-slate-200 text-slate-700 font-bold py-2.5 px-6 rounded-full shadow-sm hover:shadow-md hover:border-slate-300 transition-all flex items-center space-x-2"
-        >
-          <img src="https://www.svgrepo.com/show/475656/google-color.svg" className="w-5 h-5" alt="Google" />
-          <span>Sign in with Google</span>
-        </button>
+        <GoogleLogin onSuccess={handleCredential} onError={handleError} shape="pill" text="signin_with" />
       </nav>
 
       {/* Hero Section */}
@@ -79,14 +59,9 @@ const handleLogin = useGoogleLogin({
             A beautiful, intelligent vocabulary manager powered by Spaced Repetition algorithms to seamlessly transfer words from short-term to permanent memory.
           </p>
           
-          <button 
-             onClick={() => handleLogin()}
-             className="bg-slate-900 text-white text-lg font-bold py-5 px-10 rounded-2xl shadow-xl hover:shadow-2xl hover:-translate-y-1 hover:bg-slate-800 transition-all flex items-center space-x-3 mx-auto"
-          >
-             <img src="https://www.svgrepo.com/show/475656/google-color.svg" className="w-6 h-6 bg-white rounded-full p-1" alt="Google" />
-             <span>Get Started for Free</span>
-             <ChevronRight className="w-5 h-5" />
-          </button>
+          <div className="flex justify-center">
+            <GoogleLogin onSuccess={handleCredential} onError={handleError} size="large" theme="filled_black" shape="pill" text="continue_with" />
+          </div>
         </div>
       </div>
 

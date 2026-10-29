@@ -6,7 +6,7 @@ const COLORS = ['#10B981', '#F59E0B', '#EF4444'];
 const PIE_COLORS = ['#3B82F6', '#8B5CF6', '#EC4899', '#F59E0B', '#10B981', '#6366F1'];
 
 export function AnalyticsDashboard() {
-  const { data: summaryData, isLoading } = useAnalyticsSummary() as any;
+  const { data: summaryData, isLoading } = useAnalyticsSummary();
     
   if (isLoading || !summaryData) {
     return (
@@ -17,17 +17,18 @@ export function AnalyticsDashboard() {
   }
 
   // Formatting Activity Data for Chart
-  const formattedActivity = (summaryData?.activity || []).map((item: any) => ({
-    name: new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+  const formattedActivity = summaryData.activity.map((item) => ({
+    // Noon avoids the day shifting when a bare YYYY-MM-DD is parsed as UTC.
+    name: new Date(`${item.date}T12:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
     Reviews: item.reviews,
     'New Words Added': item.newWords
   }));
 
   // Formatting Confidence Data for Chart
   const formattedConfidence = [
-    { name: 'High Confidence', value: summaryData?.confidence.high || 0 },
-    { name: 'Learning', value: summaryData?.confidence.medium || 0 },
-    { name: 'Low Confidence', value: summaryData?.confidence.low || 0 },
+    { name: 'High Confidence', value: summaryData.confidence.high },
+    { name: 'Learning', value: summaryData.confidence.medium },
+    { name: 'Low Confidence', value: summaryData.confidence.low },
   ];
 
   const totalWords = formattedConfidence.reduce((acc, curr) => acc + curr.value, 0);
@@ -112,7 +113,7 @@ export function AnalyticsDashboard() {
       <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
           <h3 className="text-lg font-bold text-slate-800 mb-6">Collections Breakdown</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {summaryData?.collections?.map((col: any, index: any) => (
+              {summaryData.collections.map((col, index) => (
                   <div key={col.id} className="p-4 rounded-2xl bg-slate-50 border border-slate-100 flex flex-col">
                       <div className="flex items-center space-x-2 mb-3">
                          <div className="w-3 h-3 rounded-full" style={{ backgroundColor: PIE_COLORS[index % PIE_COLORS.length] }}></div>

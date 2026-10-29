@@ -1,11 +1,11 @@
 import toast from "react-hot-toast";
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { fetchApi } from '../../api/client';
 
 export interface Meaning {
   partOfSpeech: string;
-  definitions: { definition: string; example?: string }[];
+  definitions: { definition: string; example?: string; synonyms?: string[]; antonyms?: string[] }[];
   synonyms?: string[];
   antonyms?: string[];
   createdAt?: string;
@@ -34,6 +34,14 @@ export interface VocabularyCollection {
   wordIds: string[];
 }
 
+/** Anything that changes words or collections also changes the dashboard numbers and analytics. */
+function invalidateLibrary(queryClient: QueryClient) {
+  for (const key of ['vocabulary', 'collections', 'dashboard', 'analytics']) {
+    queryClient.invalidateQueries({ queryKey: [key] });
+  }
+  queryClient.invalidateQueries({ queryKey: ['learning', 'today'] });
+}
+
 export function useMyVocabulary() {
   return useQuery<VocabularyItem[]>({
     queryKey: ['vocabulary'],
@@ -57,8 +65,7 @@ export function useAddVocabulary() {
       return fetchApi(url, { method: 'POST', body: JSON.stringify(item) });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['vocabulary'] });
-      queryClient.invalidateQueries({ queryKey: ['collections'] });
+      invalidateLibrary(queryClient);
       toast.success('Word added successfully!');
     },
     onError: () => toast.error('Failed to add word')
@@ -72,12 +79,8 @@ export function useUpdateVocabulary() {
       const url = collectionId ? `/vocabulary/${id}?collectionId=${collectionId}` : `/vocabulary/${id}`;
       return fetchApi(url, { method: 'PUT', body: JSON.stringify(item) });
     },
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['vocabulary'] });
-      queryClient.invalidateQueries({ queryKey: ['vocabulary', variables.id] });
-      if (variables.collectionId) {
-         queryClient.invalidateQueries({ queryKey: ['collections'] });
-      }
+    onSuccess: () => {
+      invalidateLibrary(queryClient);
       toast.success('Word updated successfully!');
     },
     onError: () => toast.error('Failed to update word')
@@ -89,13 +92,13 @@ export function useUpdateCollection() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, name, description }: { id: string; name?: string; description?: string }) => {
-      const payload: any = {};
+      const payload: { name?: string; description?: string } = {};
       if (name) payload.name = name;
       if (description !== undefined) payload.description = description;
       return fetchApi(`/collections/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['collections'] });
+      invalidateLibrary(queryClient);
       toast.success('Collection updated!');
     },
     onError: () => toast.error('Failed to update collection')
@@ -107,9 +110,8 @@ export function useDeleteVocabulary() {
   return useMutation({
     mutationFn: (id: string) => fetchApi(`/vocabulary/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ['vocabulary'] });
-        queryClient.invalidateQueries({ queryKey: ['collections'] });
-        toast.success('Word deleted!');
+      invalidateLibrary(queryClient);
+      toast.success('Word deleted!');
     },
     onError: () => toast.error('Failed to delete word')
   });
@@ -126,7 +128,7 @@ export function useCreateCollection() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (collection: Partial<VocabularyCollection>) => fetchApi('/collections', { method: 'POST', body: JSON.stringify(collection) }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['collections'] })
+    onSuccess: () => invalidateLibrary(queryClient)
   });
 }
 
@@ -135,7 +137,7 @@ export function useUpdateCollectionWords() {
   return useMutation({
     mutationFn: ({ id, wordIds }: { id: string; wordIds: string[] }) => 
       fetchApi(`/collections/${id}/words`, { method: 'PUT', body: JSON.stringify({ wordIds }) }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['collections'] })
+    onSuccess: () => invalidateLibrary(queryClient)
   });
 }
 
@@ -143,6 +145,6 @@ export function useDeleteCollection() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => fetchApi(`/collections/${id}`, { method: 'DELETE' }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['collections'] })
+    onSuccess: () => invalidateLibrary(queryClient)
   });
 }

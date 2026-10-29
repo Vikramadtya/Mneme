@@ -1,5 +1,8 @@
 node_modules
 dist
+coverage
 npm-debug.log
 .git
 .env
+*.tsbuildinfo
+test

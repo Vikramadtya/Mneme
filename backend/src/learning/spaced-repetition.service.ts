@@ -1,51 +1,65 @@
 import { Injectable } from '@nestjs/common';
 
+const DAY_MS = 86_400_000;
+
+export interface ProgressState {
+  state: string;
+  /** SM-2 easiness factor. */
+  difficulty: number;
+  /** SM-2 interval in days. */
+  stability: number;
+  /** SM-2 repetitions. */
+  reviewCount: number;
+  successCount: number;
+  failureCount: number;
+  lastReviewedAt?: Date;
+  nextReviewAt: Date;
+}
+
+export const NEW_PROGRESS = (): ProgressState => ({
+  state: 'NEW',
+  difficulty: 2.5,
+  stability: 0,
+  reviewCount: 0,
+  successCount: 0,
+  failureCount: 0,
+  nextReviewAt: new Date(),
+});
+
 @Injectable()
 export class SpacedRepetitionService {
-  
-  processReview(progress: any, grade: number): any {
-    progress.lastReviewedAt = new Date();
-    
-    // In SM-2: 
-    // difficulty = Easiness Factor (EF), starts at 2.5
-    // stability = Interval (I) in days
-    // reviewCount = Repetitions (n)
-    
-    let EF = progress.difficulty || 2.5;
-    let interval = progress.stability || 0;
-    let reps = progress.reviewCount || 0;
+  /** Pure SM-2 step: returns the new state without mutating the input. */
+  processReview(current: ProgressState, grade: number, now = new Date()): ProgressState {
+    let interval = current.stability || 0;
+    let reps = current.reviewCount || 0;
+    let state: string;
+    let successCount = current.successCount || 0;
+    let failureCount = current.failureCount || 0;
 
     if (grade >= 3) {
-      // Correct response
-      if (reps === 0) {
-        interval = 1;
-      } else if (reps === 1) {
-        interval = 6;
-      } else {
-        interval = Math.round(interval * EF);
-      }
+      interval = reps === 0 ? 1 : reps === 1 ? 6 : Math.round(interval * (current.difficulty || 2.5));
       reps += 1;
-      progress.successCount = (progress.successCount || 0) + 1;
-      progress.state = interval > 21 ? 'GRADUATED' : 'LEARNING';
+      successCount += 1;
+      state = interval > 21 ? 'GRADUATED' : 'LEARNING';
     } else {
-      // Incorrect response
       reps = 0;
       interval = 1;
-      progress.failureCount = (progress.failureCount || 0) + 1;
-      progress.state = 'LEARNING';
+      failureCount += 1;
+      state = 'LEARNING';
     }
 
-    // Update EF (Easiness Factor) using SM-2 formula
-    EF = EF + (0.1 - (5 - grade) * (0.08 + (5 - grade) * 0.02));
-    if (EF < 1.3) EF = 1.3;
+    const q = 5 - grade;
+    const easiness = Math.max(1.3, (current.difficulty || 2.5) + (0.1 - q * (0.08 + q * 0.02)));
 
-    progress.difficulty = EF;
-    progress.stability = interval;
-    progress.reviewCount = reps;
-    
-    // Calculate next review date
-    progress.nextReviewAt = new Date(Date.now() + interval * 86400000);
-    
-    return progress;
+    return {
+      state,
+      difficulty: easiness,
+      stability: interval,
+      reviewCount: reps,
+      successCount,
+      failureCount,
+      lastReviewedAt: now,
+      nextReviewAt: new Date(now.getTime() + interval * DAY_MS),
+    };
   }
 }

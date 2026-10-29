@@ -1,100 +1,41 @@
-import { UseGuards } from '@nestjs/common';
-import { AuthGuard } from '../auth/auth.guard.js';
+import { Body, Controller, Delete, Get, Inject, Param, Post, Put, Query } from '@nestjs/common';
 import { UserId } from '../auth/user.decorator.js';
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, Headers, HttpException, HttpStatus } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
-import { VocabularyItem } from './schemas/vocabulary-item.schema.js';
-import { VocabularyCollection } from './schemas/vocabulary-collection.schema.js';
-import { DictionaryService } from './dictionary.service.js';
+import { ParseObjectIdPipe } from '../common/parse-object-id.pipe.js';
+import { CollectionQueryDto } from './dto/ids.dto.js';
+import { CreateWordDto, UpdateWordDto } from './dto/word.dto.js';
+import { VocabularyService } from './vocabulary.service.js';
 
 @Controller('api/v1/vocabulary')
-@UseGuards(AuthGuard)
 export class VocabularyController {
-  constructor(
-    @InjectModel(VocabularyItem.name) private vocabModel: Model<VocabularyItem>,
-    @InjectModel(VocabularyCollection.name) private collectionModel: Model<VocabularyCollection>,
-    @InjectModel('UserWordProgress') private progressModel: Model<any>,
-    private dictionaryService: DictionaryService
-  ) {}
-
-
+  constructor(@Inject(VocabularyService) private vocabulary: VocabularyService) {}
 
   @Get('me')
-  async getMyVocabulary(@UserId() userId: string) {
-    return this.vocabModel.find({ createdBy: userId }).exec();
+  list(@UserId() userId: string) {
+    return this.vocabulary.list(userId);
   }
 
   @Get(':id')
-  async getWord(@Param('id') id: string, @UserId() userId: string) {
-    return this.vocabModel.findOne({ _id: id, createdBy: userId }).exec();
+  get(@Param('id', ParseObjectIdPipe) id: string, @UserId() userId: string) {
+    return this.vocabulary.get(userId, id);
   }
 
   @Post()
-  async addWord(@Body() body: any, @Query('collectionId') collectionId: string, @UserId() userId: string) {
-    let item = { ...body, createdBy: userId };
-    item = await this.dictionaryService.fetchWordDetails(item);
-    
-    if (!item.definitions || item.definitions.length === 0) {
-      item.definitions = ["No definition available."];
-    }
-
-    // BUG FIX: Headless Word Fix using Mongoose Transactions
-    let savedItem;
-    try {
-      // Create and save the word first
-      savedItem = new this.vocabModel(item);
-      await savedItem.save();
-      
-      // Create and save progress tracker
-      const progress = new this.progressModel({
-        userId,
-        wordId: savedItem._id.toString(),
-        state: 'NEW',
-        difficulty: 2.5,
-        stability: 0.0,
-        nextReviewAt: new Date(),
-        reviewCount: 0,
-        successCount: 0,
-        failureCount: 0
-      });
-      await progress.save();
-      
-      // Update collections
-      let targetCollection = collectionId ? 
-        await this.collectionModel.findOne({ _id: collectionId, userId }) : 
-        await this.collectionModel.findOne({ userId, name: { $regex: /^Inbox$/i } });
-        
-      if (!targetCollection && !collectionId) {
-        targetCollection = new this.collectionModel({ name: 'Inbox', userId, wordIds: [] });
-      }
-      
-      if (targetCollection) {
-        if (!targetCollection.wordIds) targetCollection.wordIds = [];
-        targetCollection.wordIds.push(savedItem._id.toString());
-        await targetCollection.save();
-      }
-      
-      return savedItem;
-    } catch (error: any) {
-      // Manual rollback if something fails to prevent headless words!
-      if (savedItem && savedItem._id) {
-         await this.vocabModel.findByIdAndDelete(savedItem._id);
-         await this.progressModel.deleteMany({ wordId: savedItem._id.toString() });
-      }
-      throw new HttpException('Failed to save word: ' + error.message, HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+  add(@Body() body: CreateWordDto, @Query() query: CollectionQueryDto, @UserId() userId: string) {
+    return this.vocabulary.add(userId, body, query.collectionId);
   }
 
   @Put(':id')
-  async updateWord(@Param('id') id: string, @Body() body: any, @UserId() userId: string) {
-    return this.vocabModel.findOneAndUpdate({ _id: id, createdBy: userId }, body, { new: true }).exec();
+  update(
+    @Param('id', ParseObjectIdPipe) id: string,
+    @Body() body: UpdateWordDto,
+    @Query() query: CollectionQueryDto,
+    @UserId() userId: string,
+  ) {
+    return this.vocabulary.update(userId, id, body, query.collectionId);
   }
 
   @Delete(':id')
-  async deleteWord(@Param('id') id: string, @UserId() userId: string) {
-    // The pre('findOneAndDelete') hook on VocabularyItemSchema will cascade delete the progress!
-    await this.vocabModel.findOneAndDelete({ _id: id, createdBy: userId }).exec();
-    return { success: true };
+  remove(@Param('id', ParseObjectIdPipe) id: string, @UserId() userId: string) {
+    return this.vocabulary.remove(userId, id);
   }
 }
