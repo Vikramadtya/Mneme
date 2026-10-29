@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useVocabularyItem, useUpdateVocabulary } from './api';
 import { Volume2, Info, Map as MapIcon, Book, ArrowLeft, Loader2 } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
@@ -54,12 +54,47 @@ const THEMES = [
   }
 ];
 
+// Theme fonts load on demand (only the one for the word on screen) instead of on every page view.
+const FONT_QUERIES: Record<string, string> = {
+  'Abril Fatface': 'Abril+Fatface',
+  'Cinzel': 'Cinzel:wght@700',
+  'Dancing Script': 'Dancing+Script:wght@700',
+  'Great Vibes': 'Great+Vibes',
+  'Pacifico': 'Pacifico',
+  'Playfair Display': 'Playfair+Display:ital,wght@1,700',
+  'Righteous': 'Righteous',
+  'Lobster': 'Lobster',
+  'Bebas Neue': 'Bebas+Neue',
+  'Caveat': 'Caveat:wght@700',
+};
+
+function loadThemeFont(fontFamily: string) {
+  const family = fontFamily.match(/'([^']+)'/)?.[1];
+  const query = family && FONT_QUERIES[family];
+  if (!query) return;
+  const href = `https://fonts.googleapis.com/css2?family=${query}&display=swap`;
+  if (document.head.querySelector(`link[href="${href}"]`)) return;
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = href;
+  document.head.appendChild(link);
+}
+
+function themeFor(text: string) {
+  const hash = text.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  return THEMES[hash % THEMES.length];
+}
+
+const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 export function WordDetailView() {
   const { id } = useParams();
   const { data: word, isLoading } = useVocabularyItem(id as string);
   const updateWord = useUpdateVocabulary();
   
   const [noteText, setNoteText] = useState('');
+  const theme = themeFor(word?.word ?? '');
+  useEffect(() => loadThemeFont(theme.font), [theme.font]);
 
   if (isLoading || !word) {
     return <div className="min-h-screen flex items-center justify-center bg-slate-50"><Loader2 className="w-8 h-8 animate-spin text-blue-500" /></div>;
@@ -74,7 +109,7 @@ export function WordDetailView() {
   const handleSaveNote = () => {
     if (noteText.trim()) {
         const currentNotes = word.notes ? word.notes + "\n" + noteText : noteText;
-        updateWord.mutate({ id: word.id, item: { ...word, notes: currentNotes } });
+        updateWord.mutate({ id: word.id, item: { notes: currentNotes } });
         setNoteText('');
     }
   };
@@ -92,10 +127,6 @@ export function WordDetailView() {
           if (firstDef.example) primaryExample = firstDef.example;
       }
   }
-
-  // Deterministic Theme Selection
-  const hash = word.word.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  const theme = THEMES[hash % THEMES.length];
 
   return (
     <div className="flex flex-col md:flex-row min-h-screen bg-slate-50 font-serif">
@@ -124,7 +155,7 @@ export function WordDetailView() {
           {primaryExample && (
             <div className={`mt-16 text-xl ${theme.subtext} relative`}>
               <span className="absolute -top-12 -left-8 text-8xl opacity-10 font-sans">"</span>
-              <p>the <strong className="font-bold">{word.word}</strong> {primaryExample.replace(new RegExp(word.word, 'i'), '')}</p>
+              <p>the <strong className="font-bold">{word.word}</strong> {primaryExample.replace(new RegExp(escapeRegExp(word.word), 'i'), '')}</p>
             </div>
           )}
         </div>

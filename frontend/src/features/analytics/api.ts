@@ -20,9 +20,17 @@ export interface CollectionAnalyticsData {
   accuracyPercent: number;
 }
 
+export interface AnalyticsSummary {
+  activity: ActivityData[];
+  confidence: ConfidenceData;
+  collections: CollectionAnalyticsData[];
+}
+
+const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
 export function useAnalyticsSummary() {
-  return useQuery<any>({
-    queryKey: ['analytics', 'summary'],
-    queryFn: () => fetchApi('/analytics/summary')
+  return useQuery<AnalyticsSummary>({
+    queryKey: ['analytics', 'summary', timeZone],
+    queryFn: () => fetchApi(`/analytics/summary?tz=${encodeURIComponent(timeZone)}`),
   });
 }

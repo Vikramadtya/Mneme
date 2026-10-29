@@ -16,9 +16,15 @@ A highly scalable spaced-repetition flashcard application.
 ### Running the Backend
 \`\`\`bash
 cd backend
+cp .env.example .env   # then fill in MONGO_URI, JWT_SECRET and GOOGLE_CLIENT_ID
 npm install
 npm run start:dev
+npm test               # unit + end-to-end tests (in-memory MongoDB, no setup needed)
 \`\`\`
+
+A local MongoDB can be started with \`MONGO_PASSWORD=... docker compose up -d\` (bound to localhost only).
+
+A local MongoDB can be started with `MONGO_PASSWORD=... docker compose up -d` (bound to localhost only).
 
 ### Running the Frontend
 \`\`\`bash
@@ -32,4 +38,4 @@ This application strictly follows Domain-Driven Design (DDD) and SOLID principle
 - **Presentation Layer:** Controllers exposing RESTful endpoints.
 - **Application Layer:** Services orchestrating business logic (SpacedRepetitionService).
 - **Domain Layer:** Pure interfaces/classes for entities.
-- **Infrastructure Layer:** Mongoose Schemas and Hooks.
+- **Infrastructure Layer:** Mongoose Schemas and indexes.

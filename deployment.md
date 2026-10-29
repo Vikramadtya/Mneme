@@ -25,12 +25,16 @@ This guide details how to deploy the Memoriser application across three speciali
 3. Configure the service:
    - **Name:** `memoriser-api`
    - **Root Directory:** `backend` (Crucial!)
-   - **Environment:** `Docker` (Render will automatically use Node.js). Use `Node` environment.
+   - **Environment:** `Node`
    - **Build Command:** `npm install && npm run build`
    - **Start Command:** `npm run start:prod`
 4. **Environment Variables:**
    - Add `MONGO_URI` and paste the MongoDB connection string from Step 1.
-   - Add `memoriser.auth.mock-user-id` = `0000-0000-0000-0000` (or leave it out to use the default).
+   - Add `JWT_SECRET`: at least 32 random characters (`openssl rand -base64 48`). Keep it private; changing it logs everyone out.
+   - Add `GOOGLE_CLIENT_ID`: the same OAuth client id the frontend uses.
+   - Add `CORS_ORIGIN`: your Vercel URL (comma-separate multiple origins).
+   - Optional: `SENTRY_DSN`, `SENTRY_TRACES_SAMPLE_RATE` (default `0.1`).
+   - The server refuses to start if `MONGO_URI`, `JWT_SECRET` or `GOOGLE_CLIENT_ID` is missing.
 5. Click **Create Web Service**. 
 6. Render will build and deploy your API. Once live, copy the public URL (e.g., `https://memoriser-api.onrender.com`).
 
@@ -46,6 +50,7 @@ This guide details how to deploy the Memoriser application across three speciali
    - **Output Directory:** `dist`
 4. **Environment Variables:**
    - Add `VITE_API_URL` and set it to your Render backend URL **plus `/api/v1`** (e.g., `https://memoriser-api.onrender.com/api/v1`).
+   - Add `VITE_GOOGLE_CLIENT_ID` (the Google OAuth client id; add your Vercel domain to its authorized JavaScript origins).
 5. Click **Deploy**. Vercel will build and host your frontend on a global CDN.
 
 ---
@@ -54,7 +59,7 @@ This guide details how to deploy the Memoriser application across three speciali
 We have added automated Continuous Integration (CI) workflows in `.github/workflows/`.
 Every time you push code to `main` or open a Pull Request:
 1. `ci-frontend.yml`: Verifies the React code compiles without TypeScript errors.
-2. `ci-backend.yml`: Compiles the NestJS backend to ensure no build failures.
+2. `ci-backend.yml`: Lints, builds and runs the NestJS backend tests (unit and end-to-end against an in-memory MongoDB).
 
 *Note: You do not need GitHub Actions for the actual Deployment. Vercel and Render natively integrate with GitHub and will automatically deploy whenever code is pushed to `main`.*
 

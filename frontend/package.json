@@ -10,30 +10,20 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@hookform/resolvers": "^5.9.1",
     "@react-oauth/google": "^0.13.5",
-    "@sentry/browser": "^10.75.0",
     "@sentry/react": "^10.75.0",
-    "@tailwindcss/postcss": "^4.3.3",
     "@tailwindcss/vite": "^4.3.3",
     "@tanstack/react-query": "^5.102.8",
     "@vercel/analytics": "^2.0.1",
     "@vercel/speed-insights": "^2.0.0",
-    "autoprefixer": "^10.5.4",
-    "clsx": "^2.1.1",
     "lucide-react": "^1.39.0",
-    "postcss": "^8.5.26",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "react-hook-form": "^7.87.0",
     "react-hot-toast": "^2.6.0",
     "react-router-dom": "^7.18.3",
     "recharts": "^3.10.1",
-    "tailwind-merge": "^3.6.0",
     "tailwindcss": "^4.3.3",
-    "tailwindcss-animate": "^1.0.7",
-    "zod": "^4.5.4",
-    "zustand": "^5.0.15"
+    "tailwindcss-animate": "^1.0.7"
   },
   "devDependencies": {
     "@types/node": "^24.13.3",

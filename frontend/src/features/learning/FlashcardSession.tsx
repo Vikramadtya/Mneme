@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { TodayReview } from './api';
 import { useTodaysReviews, useSubmitReview } from './api';
+import toast from 'react-hot-toast';
 import { Link, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Loader2, Sparkles, Brain } from 'lucide-react';
 
@@ -46,7 +47,10 @@ export function FlashcardSession() {
   const { vocabulary } = currentItem;
 
   const handleGrade = (grade: number) => {
-    submitReview.mutate({ wordId: vocabulary.id, grade });
+    submitReview.mutate(
+      { wordId: vocabulary.id, grade },
+      { onError: () => toast.error('Could not save that review. Check your connection.') },
+    );
     setIsRevealed(false);
     setCurrentIndex(prev => prev + 1);
   };
@@ -85,7 +89,7 @@ export function FlashcardSession() {
                         
                         {vocabulary.meanings && vocabulary.meanings.length > 0 ? (
                             <div className="space-y-4 overflow-y-auto max-h-[250px] pr-2">
-                                {vocabulary.meanings.map((m: any, i: number) => (
+                                {vocabulary.meanings.map((m, i) => (
                                     <div key={i}>
                                         <span className="text-sm font-bold text-blue-600 mb-1 block">{m.partOfSpeech}</span>
                                         <p className="text-lg text-slate-700">{m.definitions[0]?.definition}</p>

@@ -1,22 +1,12 @@
 import { Module } from '@nestjs/common';
-import { MongooseModule } from '@nestjs/mongoose';
-import { UserWordProgress, UserWordProgressSchema } from './schemas/user-word-progress.schema.js';
-import { ReviewLog, ReviewLogSchema } from './schemas/review-log.schema.js';
-import { VocabularyItem, VocabularyItemSchema } from '../vocabulary/schemas/vocabulary-item.schema.js';
-import { VocabularyCollection, VocabularyCollectionSchema } from '../vocabulary/schemas/vocabulary-collection.schema.js';
+import { VocabularyModule } from '../vocabulary/vocabulary.module.js';
 import { LearningController } from './learning.controller.js';
+import { LearningService } from './learning.service.js';
 import { SpacedRepetitionService } from './spaced-repetition.service.js';
 
 @Module({
-  imports: [
-    MongooseModule.forFeature([
-      { name: UserWordProgress.name, schema: UserWordProgressSchema },
-      { name: ReviewLog.name, schema: ReviewLogSchema },
-      { name: 'VocabularyItem', schema: VocabularyItemSchema },
-      { name: 'VocabularyCollection', schema: VocabularyCollectionSchema }
-    ])
-  ],
+  imports: [VocabularyModule],
   controllers: [LearningController],
-  providers: [SpacedRepetitionService]
+  providers: [LearningService, SpacedRepetitionService],
 })
 export class LearningModule {}

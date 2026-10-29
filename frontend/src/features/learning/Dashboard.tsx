@@ -1,14 +1,19 @@
-import { useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useDashboardOverview } from './api'
 import { BookOpen, Brain, Clock, ChevronRight, Activity, AlertCircle, Target, Award, Layers } from 'lucide-react'
-import { AnalyticsDashboard } from '../analytics/AnalyticsDashboard'
+import { signOut } from '../../api/auth'
+
+// recharts is heavy; only load it when the dashboard actually renders the charts.
+const AnalyticsDashboard = lazy(() =>
+  import('../analytics/AnalyticsDashboard').then((m) => ({ default: m.AnalyticsDashboard })),
+)
 import { exportData, importData } from './dataApi'
 import { Download, Upload } from 'lucide-react'
 
 export function Dashboard() {
   const navigate = useNavigate();
-  const { data: overview, isLoading, isError } = useDashboardOverview() as any;
+  const { data: overview, isLoading, isError } = useDashboardOverview();
   const stats = overview?.stats;
   const collections = overview?.collections;
   
@@ -61,7 +66,7 @@ export function Dashboard() {
              </Link>
              <Link to="/vocabulary" className="text-sm font-semibold text-blue-600 bg-blue-50 px-4 py-2 rounded-xl hover:bg-blue-100 transition-colors">Vocabulary</Link>
              <button 
-               onClick={() => { localStorage.removeItem('isAuthenticated'); localStorage.removeItem('access_token'); window.location.reload(); }}
+               onClick={signOut}
                className="text-sm font-semibold text-slate-500 hover:text-slate-800 transition-colors ml-4"
              >
                Sign Out
@@ -117,7 +122,7 @@ export function Dashboard() {
                         className="appearance-none bg-slate-50 border border-slate-200 text-slate-700 py-4 pl-4 pr-10 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-full font-medium cursor-pointer shadow-sm hover:border-slate-300 transition-colors"
                     >
                         <option value="all">Global (All Collections)</option>
-                        {collections.map((c: any) => (
+                        {collections.map((c) => (
                             <option key={c.id} value={c.id}>Target: {c.name}</option>
                         ))}
                     </select>
@@ -177,7 +182,9 @@ export function Dashboard() {
             </div>
         </div>
 
-        <AnalyticsDashboard />
+        <Suspense fallback={<div className="h-64" />}>
+          <AnalyticsDashboard />
+        </Suspense>
 
       
       {/* Account Data Management */}

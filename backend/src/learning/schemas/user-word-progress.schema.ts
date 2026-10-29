@@ -1,41 +1,21 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document } from 'mongoose';
 
 @Schema({ collection: 'user_word_progress', timestamps: true })
-export class UserWordProgress extends Document {
-  @Prop({ required: true })
-  userId: string;
-
-  @Prop({ required: true })
-  wordId: string;
-
-  @Prop({ default: 'NEW' })
-  state: string;
-
-  @Prop({ default: 2.5 })
-  difficulty: number;
-
-  @Prop({ default: 0.0 })
-  stability: number;
-
-  @Prop({ default: 0 })
-  reviewCount: number;
-
-  @Prop({ default: 0 })
-  successCount: number;
-
-  @Prop({ default: 0 })
-  failureCount: number;
-
-  @Prop()
-  lastReviewedAt: Date;
-
-  @Prop({ default: () => new Date() })
-  nextReviewAt: Date;
+export class UserWordProgress {
+  @Prop({ required: true }) userId: string;
+  @Prop({ required: true }) wordId: string;
+  @Prop({ default: 'NEW' }) state: string;
+  /** SM-2 easiness factor. */
+  @Prop({ default: 2.5 }) difficulty: number;
+  /** SM-2 interval in days. */
+  @Prop({ default: 0 }) stability: number;
+  @Prop({ default: 0 }) reviewCount: number;
+  @Prop({ default: 0 }) successCount: number;
+  @Prop({ default: 0 }) failureCount: number;
+  @Prop() lastReviewedAt: Date;
+  @Prop({ default: () => new Date() }) nextReviewAt: Date;
 }
 
 export const UserWordProgressSchema = SchemaFactory.createForClass(UserWordProgress);
-
-// BUG FIX: Prevent Duplicate Progress Trackers
-// This unique compound index ensures that a user can only ever have ONE progress tracker per word.
 UserWordProgressSchema.index({ userId: 1, wordId: 1 }, { unique: true });
+UserWordProgressSchema.index({ userId: 1, nextReviewAt: 1 });

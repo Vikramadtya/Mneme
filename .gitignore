@@ -57,3 +57,5 @@ coverage/
 
 # Application specific
 oxlint-report.json
+# Scratch scripts
+scratch_*.js
