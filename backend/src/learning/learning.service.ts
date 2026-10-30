@@ -63,31 +63,32 @@ export class LearningService {
     const now = new Date();
     const countState = (state: string) => ({ $sum: { $cond: [{ $eq: ['$state', state] }, 1, 0] } });
 
-    const [totalWords, [agg]] = await Promise.all([
-      this.vocab.countDocuments({ createdBy: userId }),
-      this.progress.aggregate([
-        { $match: { userId } },
-        {
-          $group: {
-            _id: null,
-            dueCount: {
-              $sum: { $cond: [{ $and: [{ $lte: ['$nextReviewAt', now] }, { $ne: ['$state', 'NEW'] }] }, 1, 0] },
-            },
-            newCount: countState('NEW'),
-            learningCount: countState('LEARNING'),
-            graduatedCount: countState('GRADUATED'),
-            success: { $sum: '$successCount' },
-            failure: { $sum: '$failureCount' },
+    const wordIds = (await this.vocab.find({ createdBy: userId }).select('_id').lean()).map((w) => String(w._id));
+    const totalWords = wordIds.length;
+    const [agg] = await this.progress.aggregate([
+      { $match: { userId, wordId: { $in: wordIds } } },
+      {
+        $group: {
+          _id: null,
+          dueCount: {
+            $sum: { $cond: [{ $and: [{ $lte: ['$nextReviewAt', now] }, { $ne: ['$state', 'NEW'] }] }, 1, 0] },
           },
+          newCount: countState('NEW'),
+          learningCount: countState('LEARNING'),
+          graduatedCount: countState('GRADUATED'),
+          success: { $sum: '$successCount' },
+          failure: { $sum: '$failureCount' },
+          tracked: { $sum: 1 },
         },
-      ]),
+      },
     ]);
 
     const total = (agg?.success ?? 0) + (agg?.failure ?? 0);
     return {
       totalWords,
       dueCount: agg?.dueCount ?? 0,
-      newCount: agg?.newCount ?? 0,
+      // Words never reviewed may have no progress record; they are new too.
+      newCount: (agg?.newCount ?? 0) + Math.max(0, totalWords - (agg?.tracked ?? 0)),
       learningCount: agg?.learningCount ?? 0,
       graduatedCount: agg?.graduatedCount ?? 0,
       accuracyPercent: total ? Math.round(((agg.success ?? 0) / total) * 100) : 0,

@@ -2,6 +2,9 @@ import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import { SignJWT } from 'jose';
+import { getConnectionToken } from '@nestjs/mongoose';
+import { ObjectId } from 'mongodb';
+import type { Connection } from 'mongoose';
 import request from 'supertest';
 import type { AuthService as AuthServiceType } from '../src/auth/auth.service.js';
 
@@ -157,6 +160,27 @@ describe('API (e2e)', () => {
       expect(res.body.confidence).toEqual({ high: 0, medium: 1, low: 0 });
       expect(res.body.collections[0]).toMatchObject({ name: 'Inbox', wordCount: 1, accuracyPercent: 100 });
     });
+
+    it('counts only words that exist, ignoring stale progress and collection entries', async () => {
+      const token = await auth.sign('hana');
+      await http().post('/api/v1/vocabulary').set(as(token)).send({ word: 'lucid', definitions: ['clear'] }).expect(201);
+      await http().post('/api/v1/vocabulary').set(as(token)).send({ word: 'terse', definitions: ['brief'] }).expect(201);
+
+      // Simulate leftovers from older versions: progress and collection ids for deleted words, one word untracked.
+      const db = app.get<Connection>(getConnectionToken()).db!;
+      const ghost = '0123456789abcdef01234567';
+      await db.collection('user_word_progress').insertOne({ userId: 'hana', wordId: ghost, state: 'GRADUATED' });
+      await db.collection('collections').updateOne({ userId: 'hana', name: 'Inbox' }, { $push: { wordIds: ghost } } as any);
+      const terse = await db.collection('vocabulary').findOne({ createdBy: 'hana', word: 'terse' });
+      await db.collection('user_word_progress').deleteOne({ userId: 'hana', wordId: String(terse!._id) });
+
+      const summary = await http().get('/api/v1/analytics/summary').set(as(token)).expect(200);
+      expect(summary.body.confidence).toEqual({ high: 0, medium: 0, low: 2 });
+      expect(summary.body.collections[0]).toMatchObject({ name: 'Inbox', wordCount: 2 });
+
+      const overview = await http().get('/api/v1/learning/dashboard-overview').set(as(token)).expect(200);
+      expect(overview.body.stats).toMatchObject({ totalWords: 2, newCount: 2, graduatedCount: 0 });
+    });
   });
 
   describe('deleting', () => {
@@ -177,6 +201,57 @@ describe('API (e2e)', () => {
       await http().post(`/api/v1/vocabulary?collectionId=${col.id}`).set(as(token)).send({ word: 'gone' }).expect(201);
       await http().delete(`/api/v1/collections/${col.id}`).set(as(token)).expect(200);
       expect((await http().get('/api/v1/vocabulary/me').set(as(token))).body).toEqual([]);
+    });
+  });
+
+  describe('data repair', () => {
+    it('removes leftovers of deleted words, deduplicates progress and backfills missing progress', async () => {
+      const { DataIntegrityService } = await import('../src/maintenance/data-integrity.service.js');
+      const token = await auth.sign('ivan');
+      const add = (word: string) =>
+        http().post('/api/v1/vocabulary').set(as(token)).send({ word, definitions: ['x'] }).expect(201);
+      const kept = (await add('keep')).body.id;
+      const untracked = (await add('untracked')).body.id;
+      const fresh = (await add('fresh')).body.id;
+
+      const db = app.get<Connection>(getConnectionToken()).db!;
+      const ghost = '0123456789abcdef01234567';
+      const progress = db.collection('user_word_progress');
+      await progress.dropIndex('userId_1_wordId_1'); // legacy data predates the unique index
+      await progress.insertMany([
+        { userId: 'ivan', wordId: ghost, state: 'GRADUATED', reviewCount: 3 },
+        { userId: 'ivan', wordId: kept, state: 'LEARNING', reviewCount: 5 },
+        { userId: 'alice', wordId: kept, state: 'NEW' }, // someone else's progress on ivan's word
+      ]);
+      await progress.deleteMany({ userId: 'ivan', wordId: { $in: [untracked, fresh] } });
+      // Only words older than a minute are backfilled; 'fresh' could still be mid-creation.
+      await db.collection('vocabulary').updateOne({ _id: new ObjectId(untracked) }, { $set: { createdAt: new Date(0) } });
+      await db.collection('review_logs').insertOne({ userId: 'ivan', wordId: ghost, grade: 4, reviewedAt: new Date() });
+      await db.collection('collections').updateOne({ userId: 'ivan', name: 'Inbox' }, { $push: { wordIds: ghost } } as any);
+
+      const report = await app.get(DataIntegrityService).repair();
+      // Other tests leave their own leftovers in the shared database, so these are lower bounds.
+      expect(report.orphanProgress).toBeGreaterThanOrEqual(2);
+      expect(report.duplicateProgress).toBeGreaterThanOrEqual(1);
+      expect(report.missingProgress).toBeGreaterThanOrEqual(1);
+      expect(report.orphanLogs).toBeGreaterThanOrEqual(1);
+      expect(report.staleCollectionIds).toBeGreaterThanOrEqual(1);
+
+      const rows = await progress.find({ wordId: { $in: [ghost, kept, untracked, fresh] } }).toArray();
+      expect(rows.map((r) => [r.userId, r.wordId, r.state]).sort()).toEqual(
+        [['ivan', kept, 'LEARNING'], ['ivan', untracked, 'NEW']].sort(),
+      );
+      const inbox = await db.collection('collections').findOne({ userId: 'ivan', name: 'Inbox' });
+      expect(inbox!.wordIds).toEqual(expect.not.arrayContaining([ghost]));
+      expect(await progress.indexExists('userId_1_wordId_1')).toBe(true);
+
+      expect(await app.get(DataIntegrityService).repair()).toEqual({
+        orphanProgress: 0,
+        duplicateProgress: 0,
+        missingProgress: 0,
+        orphanLogs: 0,
+        staleCollectionIds: 0,
+      });
     });
   });
 
