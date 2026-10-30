@@ -2,6 +2,8 @@ import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import { SignJWT } from 'jose';
+import { getConnectionToken } from '@nestjs/mongoose';
+import type { Connection } from 'mongoose';
 import request from 'supertest';
 import type { AuthService as AuthServiceType } from '../src/auth/auth.service.js';
 
@@ -156,6 +158,27 @@ describe('API (e2e)', () => {
       expect(res.body.activity[29]).toMatchObject({ reviews: 1, newWords: 1 });
       expect(res.body.confidence).toEqual({ high: 0, medium: 1, low: 0 });
       expect(res.body.collections[0]).toMatchObject({ name: 'Inbox', wordCount: 1, accuracyPercent: 100 });
+    });
+
+    it('counts only words that exist, ignoring stale progress and collection entries', async () => {
+      const token = await auth.sign('hana');
+      await http().post('/api/v1/vocabulary').set(as(token)).send({ word: 'lucid', definitions: ['clear'] }).expect(201);
+      await http().post('/api/v1/vocabulary').set(as(token)).send({ word: 'terse', definitions: ['brief'] }).expect(201);
+
+      // Simulate leftovers from older versions: progress and collection ids for deleted words, one word untracked.
+      const db = app.get<Connection>(getConnectionToken()).db!;
+      const ghost = '0123456789abcdef01234567';
+      await db.collection('user_word_progress').insertOne({ userId: 'hana', wordId: ghost, state: 'GRADUATED' });
+      await db.collection('collections').updateOne({ userId: 'hana', name: 'Inbox' }, { $push: { wordIds: ghost } } as any);
+      const terse = await db.collection('vocabulary').findOne({ createdBy: 'hana', word: 'terse' });
+      await db.collection('user_word_progress').deleteOne({ userId: 'hana', wordId: String(terse!._id) });
+
+      const summary = await http().get('/api/v1/analytics/summary').set(as(token)).expect(200);
+      expect(summary.body.confidence).toEqual({ high: 0, medium: 0, low: 2 });
+      expect(summary.body.collections[0]).toMatchObject({ name: 'Inbox', wordCount: 2 });
+
+      const overview = await http().get('/api/v1/learning/dashboard-overview').set(as(token)).expect(200);
+      expect(overview.body.stats).toMatchObject({ totalWords: 2, newCount: 2, graduatedCount: 0 });
     });
   });
 
