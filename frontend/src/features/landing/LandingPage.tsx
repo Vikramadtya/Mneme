@@ -7,6 +7,10 @@ import toast from 'react-hot-toast';
 
 export function LandingPage() {
   const handleCredential = async (response: CredentialResponse) => {
+    if (!response.credential) {
+      toast.error(`Google returned no ID token (got: ${Object.keys(response).join(', ') || 'nothing'}).`);
+      return;
+    }
     const loadingToast = toast.loading('Signing in...');
     try {
       const res = await fetch(`${API_BASE_URL}/auth/login`, {
