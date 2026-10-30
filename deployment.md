@@ -55,6 +55,24 @@ This guide details how to deploy the Memoriser application across three speciali
 
 ---
 
+## 3b. Optional features
+
+These need no setup to run the app; each is off until configured.
+
+**Daily reminders (push notifications)**
+1. Generate keys: `npx web-push generate-vapid-keys`.
+2. On Render add `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` (e.g. `mailto:you@example.com`) and `CRON_SECRET` (random, 32+ characters).
+3. In the GitHub repository add the secrets `BACKEND_URL` (e.g. `https://memoriser-api.onrender.com`) and `CRON_SECRET` (same value). The workflow `.github/workflows/reminders.yml` then calls the backend every hour; free hosts sleep, so the scheduler has to live outside the backend.
+4. Users switch reminders on under Settings. On iPhone, the app must first be added to the Home Screen.
+
+**AI suggestions when adding a word**
+Add `ANTHROPIC_API_KEY` on Render. The word being added (and its definition, if present) is sent to the Anthropic API; nothing else is. Requests are rate-limited per user.
+
+**Offline support**
+The service worker is registered on the production build only. It caches the app shell and recent study data. Signing out clears that cache.
+
+---
+
 ## 4. GitHub Actions (CI)
 We have added automated Continuous Integration (CI) workflows in `.github/workflows/`.
 Every time you push code to `main` or open a Pull Request:

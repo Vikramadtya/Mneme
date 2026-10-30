@@ -20,8 +20,17 @@ export interface CollectionAnalyticsData {
   accuracyPercent: number;
 }
 
+export interface HeatmapDay {
+  date: string;
+  count: number;
+}
+
 export interface AnalyticsSummary {
   activity: ActivityData[];
+  heatmap: HeatmapDay[];
+  streak: { current: number; longest: number };
+  today: { reviews: number; goal: number };
+  totalReviews: number;
   confidence: ConfidenceData;
   collections: CollectionAnalyticsData[];
 }

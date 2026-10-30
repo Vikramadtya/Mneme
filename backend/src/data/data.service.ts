@@ -16,7 +16,7 @@ const VOCAB_FIELDS = [
 ];
 const PROGRESS_FIELDS = [
   'state', 'difficulty', 'stability', 'reviewCount', 'successCount', 'failureCount',
-  'lastReviewedAt', 'nextReviewAt',
+  'lapses', 'algo', 'lastReviewedAt', 'nextReviewAt',
 ];
 
 function pick(source: any, keys: string[]) {

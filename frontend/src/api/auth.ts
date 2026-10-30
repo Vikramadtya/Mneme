@@ -35,5 +35,12 @@ export function isSignedIn(): boolean {
 
 export function signOut() {
   clearToken();
-  window.location.assign('/');
+  try {
+    // Cached study data and unsent reviews belong to this account only.
+    localStorage.removeItem('memoriser.reviewQueue');
+  } catch {
+    // storage unavailable
+  }
+  const wipe = typeof caches === 'undefined' ? Promise.resolve(false) : caches.delete('memoriser-api').catch(() => false);
+  void wipe.finally(() => window.location.assign('/'));
 }

@@ -144,8 +144,9 @@ describe('API (e2e)', () => {
       expect(due.body).toHaveLength(1);
       expect(due.body[0].vocabulary.id).toBe(word.id);
 
-      const reviewed = await http().post(`/api/v1/learning/${word.id}/review`).set(as(token)).send({ grade: 5 }).expect(200);
-      expect(reviewed.body).toMatchObject({ state: 'LEARNING', stability: 1, successCount: 1 });
+      const reviewed = await http().post(`/api/v1/learning/${word.id}/review`).set(as(token)).send({ grade: 4 }).expect(200);
+      expect(reviewed.body).toMatchObject({ state: 'LEARNING', successCount: 1, reviewCount: 1, algo: 'fsrs' });
+      expect(reviewed.body.stability).toBeCloseTo(13.82, 1);
 
       expect((await http().get('/api/v1/learning/today').set(as(token))).body).toHaveLength(0);
       const { stats } = (await http().get('/api/v1/learning/dashboard-overview').set(as(token))).body;
@@ -157,7 +158,7 @@ describe('API (e2e)', () => {
       const res = await http().get('/api/v1/analytics/summary?tz=Asia/Kolkata').set(as(token)).expect(200);
       expect(res.body.activity).toHaveLength(30);
       expect(res.body.activity[29]).toMatchObject({ reviews: 1, newWords: 1 });
-      expect(res.body.confidence).toEqual({ high: 0, medium: 1, low: 0 });
+      expect(res.body.confidence).toEqual({ high: 1, medium: 0, low: 0 }); // an Easy first review has a long interval
       expect(res.body.collections[0]).toMatchObject({ name: 'Inbox', wordCount: 1, accuracyPercent: 100 });
     });
 
@@ -201,6 +202,126 @@ describe('API (e2e)', () => {
       await http().post(`/api/v1/vocabulary?collectionId=${col.id}`).set(as(token)).send({ word: 'gone' }).expect(201);
       await http().delete(`/api/v1/collections/${col.id}`).set(as(token)).expect(200);
       expect((await http().get('/api/v1/vocabulary/me').set(as(token))).body).toEqual([]);
+    });
+  });
+
+  describe('settings, streaks and review history', () => {
+    const word = async (token: string, w: string, collectionId?: string) =>
+      (await http().post(`/api/v1/vocabulary${collectionId ? `?collectionId=${collectionId}` : ''}`).set(as(token)).send({ word: w, definitions: ['x'] }).expect(201)).body;
+
+    it('stores settings with sane defaults and validation', async () => {
+      const token = await auth.sign('sam');
+      const defaults = (await http().get('/api/v1/settings').set(as(token)).expect(200)).body;
+      expect(defaults).toMatchObject({ dailyGoal: 20, reminderHour: null, pushEnabled: false, aiEnabled: false });
+
+      const updated = await http().put('/api/v1/settings').set(as(token)).send({ dailyGoal: 5, reminderHour: 8, timezone: 'Asia/Kolkata' }).expect(200);
+      expect(updated.body).toMatchObject({ dailyGoal: 5, reminderHour: 8, timezone: 'Asia/Kolkata' });
+      expect((await http().put('/api/v1/settings').set(as(token)).send({ reminderHour: null }).expect(200)).body.reminderHour).toBeNull();
+      await http().put('/api/v1/settings').set(as(token)).send({ dailyGoal: 0 }).expect(400);
+      await http().put('/api/v1/settings').set(as(token)).send({ reminderHour: 24 }).expect(400);
+    });
+
+    it('tracks streaks, the daily goal and the year heatmap, and undoes a review', async () => {
+      const token = await auth.sign('tess');
+      await http().put('/api/v1/settings').set(as(token)).send({ dailyGoal: 3 }).expect(200);
+      const w = await word(token, 'tenacious');
+      let summary = (await http().get('/api/v1/analytics/summary').set(as(token)).expect(200)).body;
+      expect(summary.streak).toEqual({ current: 0, longest: 0 });
+
+      await http().post(`/api/v1/learning/${w.id}/review`).set(as(token)).send({ grade: 3, mode: 'typed' }).expect(200);
+      summary = (await http().get('/api/v1/analytics/summary').set(as(token)).expect(200)).body;
+      expect(summary.heatmap).toHaveLength(365);
+      expect(summary.streak).toEqual({ current: 1, longest: 1 });
+      expect(summary.today).toEqual({ reviews: 1, goal: 3 });
+
+      const undone = await http().post(`/api/v1/learning/${w.id}/undo`).set(as(token)).expect(200);
+      expect(undone.body).toMatchObject({ state: 'NEW', reviewCount: 0 });
+      summary = (await http().get('/api/v1/analytics/summary').set(as(token)).expect(200)).body;
+      expect(summary.today.reviews).toBe(0);
+      await http().post(`/api/v1/learning/${w.id}/undo`).set(as(token)).expect(404);
+    });
+
+    it('offers interval previews, accepts offline reviews and never rewinds a newer review', async () => {
+      const token = await auth.sign('uma');
+      const w = await word(token, 'umbrage');
+      const [card] = (await http().get('/api/v1/learning/today').set(as(token)).expect(200)).body;
+      expect(card.intervals[1]).toBe(1);
+      expect(card.intervals[4]).toBeGreaterThan(card.intervals[3]);
+
+      await http().post(`/api/v1/learning/${w.id}/review`).set(as(token)).send({ grade: 3 }).expect(200);
+      const stale = new Date(Date.now() - 3 * 86_400_000).toISOString();
+      const res = await http().post(`/api/v1/learning/${w.id}/review`).set(as(token)).send({ grade: 1, at: stale }).expect(200);
+      expect(res.body).toMatchObject({ reviewCount: 1, failureCount: 0 }); // the stale review didn't rewind the schedule
+      await http().post(`/api/v1/learning/${w.id}/review`).set(as(token)).send({ grade: 3, mode: 'karaoke' }).expect(400);
+    });
+
+    it('lists progress and flags leeches', async () => {
+      const token = await auth.sign('vera');
+      const w = await word(token, 'vexing');
+      expect((await http().get('/api/v1/learning/progress').set(as(token)).expect(200)).body[0]).toMatchObject({ wordId: w.id, state: 'NEW', leech: false });
+
+      const db = app.get<Connection>(getConnectionToken()).db!;
+      await db.collection('user_word_progress').updateOne({ userId: 'vera', wordId: w.id }, { $set: { lapses: 9 } });
+      expect((await http().get('/api/v1/learning/progress').set(as(token))).body[0].leech).toBe(true);
+      expect((await http().get('/api/v1/learning/dashboard-overview').set(as(token))).body.stats.leechCount).toBe(1);
+      expect((await http().get('/api/v1/learning/today').set(as(token))).body[0].leech).toBe(true);
+    });
+  });
+
+  describe('bulk add, sharing and integrations', () => {
+    it('adds many words, skipping duplicates', async () => {
+      const token = await auth.sign('walt');
+      const items = [{ word: 'alpha', definitions: ['first'] }, { word: 'Alpha' }, { word: 'beta', definitions: ['second'] }];
+      const first = (await http().post('/api/v1/vocabulary/bulk').set(as(token)).send({ items }).expect(201)).body;
+      expect(first).toMatchObject({ created: 2, skipped: ['Alpha'], failed: [] });
+      const again = (await http().post('/api/v1/vocabulary/bulk').set(as(token)).send({ items }).expect(201)).body;
+      expect(again).toMatchObject({ created: 0, failed: [] });
+      expect(again.skipped).toHaveLength(3);
+      expect((await http().get('/api/v1/vocabulary/me').set(as(token))).body).toHaveLength(2);
+      await http().post('/api/v1/vocabulary/bulk').set(as(token)).send({ items: [] }).expect(400);
+      await http().post('/api/v1/vocabulary/bulk').set(as(token)).send({ items: [{ word: 'x', owner: 'y' }] }).expect(400);
+    });
+
+    it('shares a collection by link and lets others import a copy', async () => {
+      const owner = await auth.sign('xena');
+      const guest = await auth.sign('yuri');
+      const col = (await http().post('/api/v1/collections').set(as(owner)).send({ name: 'GRE' }).expect(201)).body;
+      const w = (await http().post(`/api/v1/vocabulary?collectionId=${col.id}`).set(as(owner)).send({ word: 'zealous', definitions: ['eager'] }).expect(201)).body;
+
+      const { shareId } = (await http().post(`/api/v1/collections/${col.id}/share`).set(as(owner)).expect(200)).body;
+      expect((await http().post(`/api/v1/collections/${col.id}/share`).set(as(owner))).body.shareId).toBe(shareId);
+
+      const view = (await http().get(`/api/v1/public/collections/${shareId}`).expect(200)).body; // no token needed
+      expect(view).toMatchObject({ name: 'GRE', wordCount: 1 });
+      expect(view.words[0]).toMatchObject({ word: 'zealous' });
+      expect(JSON.stringify(view)).not.toMatch(/xena|createdBy|userId|_id/);
+
+      await http().post(`/api/v1/public/collections/${shareId}/import`).expect(401);
+      const imported = (await http().post(`/api/v1/public/collections/${shareId}/import`).set(as(guest)).expect(200)).body;
+      expect(imported).toMatchObject({ imported: 1, skipped: 0 });
+      const copy = (await http().get('/api/v1/collections').set(as(guest))).body.find((c: any) => c.id === imported.collectionId);
+      expect(copy).toMatchObject({ name: 'GRE' });
+      expect(copy.wordIds).toHaveLength(1);
+      expect(copy.wordIds[0]).not.toBe(w.id);
+      expect(copy.shareId).toBeUndefined();
+      expect((await http().post(`/api/v1/public/collections/${shareId}/import`).set(as(guest))).body).toMatchObject({ imported: 0, skipped: 1 });
+
+      await http().delete(`/api/v1/collections/${col.id}/share`).set(as(owner)).expect(200);
+      await http().get(`/api/v1/public/collections/${shareId}`).expect(404);
+      await http().post(`/api/v1/collections/${col.id}/share`).set(as(guest)).expect(404);
+      const inbox = (await http().get('/api/v1/collections').set(as(owner))).body.find((c: any) => c.name === 'Inbox');
+      if (inbox) await http().post(`/api/v1/collections/${inbox.id}/share`).set(as(owner)).expect(400);
+    });
+
+    it('guards reminder dispatch and reports AI assist as unconfigured', async () => {
+      await http().post('/api/v1/reminders/dispatch').expect(401);
+      await http().post('/api/v1/reminders/dispatch').set('x-cron-secret', 'guess').expect(401);
+      const token = await auth.sign('zed');
+      await http().post('/api/v1/vocabulary/ai-assist').set(as(token)).send({ word: 'quixotic' }).expect(503);
+      await http().post('/api/v1/settings/push').set(as(token)).send({ endpoint: 'http://insecure.example', keys: { p256dh: 'a', auth: 'b' } }).expect(400);
+      const sub = { endpoint: 'https://push.example/abc', keys: { p256dh: 'key', auth: 'secret' } };
+      expect((await http().post('/api/v1/settings/push').set(as(token)).send(sub).expect(201)).body.pushEnabled).toBe(true);
+      expect((await http().delete('/api/v1/settings/push').set(as(token)).send({ endpoint: sub.endpoint }).expect(200)).body.pushEnabled).toBe(false);
     });
   });
 

@@ -5,6 +5,10 @@ export class ReviewLog {
   @Prop({ required: true }) userId: string;
   @Prop({ required: true }) wordId: string;
   @Prop({ required: true }) grade: number;
+  /** Scheduling state before this review, so it can be undone. */
+  @Prop({ type: Object }) before: Record<string, any>;
+  /** How the card was answered: flip, typed, cloze or reverse. */
+  @Prop() mode: string;
 
   reviewedAt?: Date;
 }

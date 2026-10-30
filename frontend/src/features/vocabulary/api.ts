@@ -32,6 +32,8 @@ export interface VocabularyCollection {
   name: string;
   description?: string;
   wordIds: string[];
+  /** Set while the collection is shared by link. */
+  shareId?: string;
 }
 
 /** Anything that changes words or collections also changes the dashboard numbers and analytics. */
@@ -39,7 +41,7 @@ function invalidateLibrary(queryClient: QueryClient) {
   for (const key of ['vocabulary', 'collections', 'dashboard', 'analytics']) {
     queryClient.invalidateQueries({ queryKey: [key] });
   }
-  queryClient.invalidateQueries({ queryKey: ['learning', 'today'] });
+  queryClient.invalidateQueries({ queryKey: ['learning'] }); // today's queue and per-word status
 }
 
 export function useMyVocabulary() {
@@ -114,6 +116,43 @@ export function useDeleteVocabulary() {
       toast.success('Word deleted!');
     },
     onError: () => toast.error('Failed to delete word')
+  });
+}
+
+export interface BulkResult {
+  created: number;
+  skipped: string[];
+  failed: string[];
+}
+
+export function useBulkAdd() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ items, collectionId }: { items: Partial<VocabularyItem>[]; collectionId?: string }) =>
+      fetchApi<BulkResult>(collectionId ? `/vocabulary/bulk?collectionId=${collectionId}` : '/vocabulary/bulk', {
+        method: 'POST',
+        body: JSON.stringify({ items }),
+      }),
+    onSuccess: () => invalidateLibrary(queryClient),
+  });
+}
+
+export interface AiSuggestion {
+  examples: string[];
+  mnemonic: string;
+  synonyms: string[];
+  level: 'beginner' | 'intermediate' | 'advanced';
+}
+
+export const requestAiSuggestion = (word: string, meaning?: string) =>
+  fetchApi<AiSuggestion>('/vocabulary/ai-assist', { method: 'POST', body: JSON.stringify({ word, meaning }) });
+
+export function useShareCollection() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, share }: { id: string; share: boolean }) =>
+      fetchApi<{ shareId?: string }>(`/collections/${id}/share`, { method: share ? 'POST' : 'DELETE' }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['collections'] }),
   });
 }
 

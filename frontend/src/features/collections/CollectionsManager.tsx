@@ -1,255 +1,184 @@
-import { useState } from 'react';
-import { useCollections, useMyVocabulary, useCreateCollection, useDeleteCollection, useUpdateCollectionWords, useUpdateCollection } from '../vocabulary/api';
-import { Plus, Edit2, Trash2, X, Check, Layers, BookOpen } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import toast from 'react-hot-toast'
+import { BookOpen, Check, Copy, Edit2, Globe, Layers, Link2Off, ListChecks, Play, Plus, Trash2 } from 'lucide-react'
+import {
+  useCollections, useCreateCollection, useDeleteCollection, useMyVocabulary, useShareCollection, useUpdateCollection, useUpdateCollectionWords,
+  type VocabularyCollection,
+} from '../vocabulary/api'
+import { Badge, Button, Card, ConfirmDialog, EmptyState, Field, Input, Modal, PageHeader, Skeleton, cx } from '../../ui'
+
+const shareUrl = (shareId: string) => `${window.location.origin}/s/${shareId}`
 
 export function CollectionsManager() {
-  const { data: collections, isLoading } = useCollections();
-  const { data: allWords } = useMyVocabulary();
-  
-  const createCollection = useCreateCollection();
-  const deleteCollection = useDeleteCollection();
-  const updateCollection = useUpdateCollection();
-  const updateWords = useUpdateCollectionWords();
-  
-  const navigate = useNavigate();
+  const navigate = useNavigate()
+  const { data: collections, isLoading } = useCollections()
+  const { data: allWords } = useMyVocabulary()
+  const create = useCreateCollection()
+  const update = useUpdateCollection()
+  const remove = useDeleteCollection()
+  const setWords = useUpdateCollectionWords()
+  const share = useShareCollection()
 
-  const [isCreating, setIsCreating] = useState(false);
-  const [editingCollection, setEditingCollection] = useState<any>(null);
-  const [collectionToDelete, setCollectionToDelete] = useState<any>(null);
-  const [newName, setNewName] = useState('');
-  const [newDesc, setNewDesc] = useState('');
+  const [formOpen, setFormOpen] = useState(false)
+  const [editing, setEditing] = useState<VocabularyCollection | null>(null)
+  const [name, setName] = useState('')
+  const [description, setDescription] = useState('')
+  const [assigning, setAssigning] = useState<VocabularyCollection | null>(null)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [toDelete, setToDelete] = useState<VocabularyCollection | null>(null)
 
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [selectedWords, setSelectedWords] = useState<Set<string>>(new Set());
+  const openForm = (col: VocabularyCollection | null) => {
+    setEditing(col)
+    setName(col?.name ?? '')
+    setDescription(col?.description ?? '')
+    setFormOpen(true)
+  }
 
-  
-  
-  const confirmDelete = () => {
-    if (collectionToDelete) {
-      deleteCollection.mutate(collectionToDelete.id);
-      setCollectionToDelete(null);
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!name.trim()) return
+    const done = { onSuccess: () => setFormOpen(false), onError: () => toast.error('Could not save the collection') }
+    if (editing) update.mutate({ id: editing.id, name: name.trim(), description }, done)
+    else create.mutate({ name: name.trim(), description }, done)
+  }
+
+  const toggleShare = (col: VocabularyCollection, on: boolean) =>
+    share.mutate(
+      { id: col.id, share: on },
+      {
+        onSuccess: async (res) => {
+          if (on && res.shareId) {
+            await navigator.clipboard?.writeText(shareUrl(res.shareId)).catch(() => undefined)
+            toast.success('Sharing is on. The link was copied.')
+          } else if (!on) toast.success('Sharing stopped. The link no longer works.')
+        },
+        onError: (e) => toast.error(e instanceof Error ? e.message : 'Could not change sharing'),
+      },
+    )
+
+  const copyLink = async (col: VocabularyCollection) => {
+    if (!col.shareId) return
+    try {
+      await navigator.clipboard.writeText(shareUrl(col.shareId))
+      toast.success('Link copied')
+    } catch {
+      toast(shareUrl(col.shareId))
     }
-  };
+  }
 
-
-  const openEditCollection = (col: any) => {
-      setEditingCollection(col);
-      setNewName(col.name);
-      setNewDesc(col.description || '');
-      setIsCreating(true);
-  };
-
-  const handleCreate = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newName.trim()) return;
-    
-    if (editingCollection) {
-        updateCollection.mutate({ id: editingCollection.id, name: newName, description: newDesc });
-    } else {
-        createCollection.mutate({ name: newName, description: newDesc });
-    }
-    
-    setNewName('');
-    setNewDesc('');
-    setIsCreating(false);
-    setEditingCollection(null);
-  };
-
-
-  const openWordEditor = (collection: any) => {
-    setEditingId(collection.id);
-    setSelectedWords(new Set(collection.wordIds || []));
-  };
-
-  const toggleWord = (wordId: string) => {
-    const next = new Set(selectedWords);
-    if (next.has(wordId)) next.delete(wordId);
-    else next.add(wordId);
-    setSelectedWords(next);
-  };
-
-  const saveWordAssignments = () => {
-    if (editingId) {
-      updateWords.mutate({ id: editingId, wordIds: Array.from(selectedWords) });
-      setEditingId(null);
-    }
-  };
-  
-  const handleAddWordToCollection = (collectionId: string) => {
-      navigate(`/vocabulary?addWord=true&collectionId=${collectionId}`);
-  };
+  const assignable = useMemo(() => [...(allWords ?? [])].sort((a, b) => a.word.localeCompare(b.word)), [allWords])
+  const deleteCount = toDelete?.wordIds?.length ?? 0
 
   return (
-    <div className="min-h-screen bg-slate-50 p-8 font-sans text-slate-800">
-      <div className="max-w-4xl mx-auto">
-        <header className="flex justify-between items-center mb-8">
-          <div>
-            <div className="flex items-center space-x-2 mb-2">
-               <img src="/brain-svgrepo-com.svg" alt="Memoriser Logo" className="w-6 h-6" />
-               <span className="font-extrabold text-sm tracking-tight text-slate-800">Memoriser</span>
-            </div>
-            <h1 className="text-3xl font-extrabold text-slate-900 mb-2">My Collections</h1>
-            <Link to="/" className="text-blue-600 hover:underline text-sm font-medium">← Back to Dashboard</Link>
-          </div>
-          <button 
-            onClick={() => { setIsCreating(true); setEditingCollection(null); setNewName(''); setNewDesc(''); }}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-medium shadow-sm flex items-center space-x-2 transition-colors"
-          >
-            <Plus className="w-5 h-5" />
-            <span>New Collection</span>
-          </button>
-        </header>
+    <div>
+      <PageHeader
+        title="Collections"
+        subtitle="Group words into lists to study them together."
+        actions={<Button onClick={() => openForm(null)}><Plus className="h-4 w-4" />New collection</Button>}
+      />
 
-        {isCreating && (
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mb-8 animate-in slide-in-from-top-4">
-            <h2 className="text-lg font-bold mb-4">{editingCollection ? "Edit Collection" : "Create Collection"}</h2>
-            <form onSubmit={handleCreate} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Name</label>
-                <input 
-                  type="text" 
-                  value={newName}
-                  onChange={e => setNewName(e.target.value)}
-                  className="w-full border border-slate-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
-                  placeholder="e.g. TOEFL Essential, Daily Conversational..."
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Description (Optional)</label>
-                <input 
-                  type="text" 
-                  value={newDesc}
-                  onChange={e => setNewDesc(e.target.value)}
-                  className="w-full border border-slate-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
-                />
-              </div>
-              <div className="flex justify-end space-x-3">
-                <button type="button" onClick={() => { setIsCreating(false); setEditingCollection(null); setNewName(''); setNewDesc(''); }} className="px-4 py-2 text-slate-600 font-medium hover:bg-slate-100 rounded-lg">Cancel</button>
-                <button type="submit" className="bg-slate-900 text-white px-6 py-2 rounded-lg font-medium">{editingCollection ? "Save Changes" : "Save Collection"}</button>
-              </div>
-            </form>
-          </div>
-        )}
-
-        {isLoading ? (
-          <div className="text-center py-12 text-slate-500">Loading collections...</div>
-        ) : collections?.length === 0 ? (
-           <div className="bg-white rounded-3xl p-12 text-center border border-slate-200 border-dashed">
-               <Layers className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-               <h3 className="text-lg font-bold text-slate-700">No Collections Yet</h3>
-               <p className="text-slate-500 mb-6">Group your words into manageable lists for targeted learning.</p>
-               <button onClick={() => setIsCreating(true)} className="text-blue-600 font-medium hover:underline">Create your first collection</button>
-           </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {collections?.map(col => (
-              <div key={col.id} className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition">
-                <div className="flex justify-between items-start mb-4">
-                    <div>
-                        <h3 className="text-xl font-bold text-slate-900 group-hover:text-blue-600 transition-colors flex items-center space-x-2">
-                            <span>{col.name}</span>
-                            <button onClick={() => openEditCollection(col)} className="text-slate-300 hover:text-blue-500 transition"><Edit2 className="w-4 h-4"/></button>
-                        </h3>
-                        {col.description && <p className="text-slate-500 text-sm mt-1">{col.description}</p>}
-                    </div>
-                    <button onClick={() => setCollectionToDelete(col)} className="text-slate-400 hover:text-red-500 transition"><Trash2 className="w-5 h-5"/></button>
-                </div>
-                
-                <div className="flex items-center space-x-2 text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg w-max mb-6">
-                    <BookOpen className="w-4 h-4" />
-                    <span className="text-sm font-bold">{col.wordIds?.length || 0} Words</span>
-                </div>
-
-                <div className="flex flex-col sm:flex-row gap-3">
-                    <button 
-                      onClick={() => handleAddWordToCollection(col.id)}
-                      className="flex-1 bg-slate-900 text-white font-medium py-2 rounded-xl hover:bg-slate-800 transition flex items-center justify-center space-x-2"
-                    >
-                      <Plus className="w-4 h-4" />
-                      <span>Add Word</span>
-                    </button>
-                    <button 
-                      onClick={() => openWordEditor(col)}
-                      className="flex-1 border border-slate-300 text-slate-700 font-medium py-2 rounded-xl hover:bg-slate-50 transition flex items-center justify-center space-x-2"
-                    >
-                      <Edit2 className="w-4 h-4" />
-                      <span>Bulk Move</span>
-                    </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Word Editor Modal (Bulk Assign) */}
-        {editingId && (
-          <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-3xl w-full max-w-2xl max-h-[80vh] flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95">
-              <div className="p-6 border-b border-slate-100 flex justify-between items-center">
-                <h2 className="text-xl font-bold">Bulk Assign Words to Collection</h2>
-                <button onClick={() => setEditingId(null)} className="text-slate-400 hover:text-slate-600"><X className="w-6 h-6"/></button>
-              </div>
-              
-              <div className="p-6 overflow-y-auto flex-1 bg-slate-50">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {allWords?.map(word => {
-                          const isSelected = selectedWords.has(word.id);
-                          return (
-                              <div 
-                                key={word.id} 
-                                onClick={() => toggleWord(word.id)}
-                                className={`p-4 rounded-xl cursor-pointer border-2 transition-all flex justify-between items-center ${isSelected ? 'border-blue-500 bg-blue-50' : 'border-transparent bg-white shadow-sm hover:border-slate-300'}`}
-                              >
-                                  <span className="font-bold text-slate-800">{word.word}</span>
-                                  {isSelected && <Check className="w-5 h-5 text-blue-500" />}
-                              </div>
-                          )
-                      })}
+      {isLoading ? (
+        <div className="grid gap-4 md:grid-cols-2">{[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-44" />)}</div>
+      ) : !collections?.length ? (
+        <Card className="border-dashed">
+          <EmptyState icon={<Layers className="h-6 w-6" />} title="No collections yet" action={<Button onClick={() => openForm(null)}>Create your first collection</Button>}>
+            Group your words into lists for targeted learning.
+          </EmptyState>
+        </Card>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2">
+          {collections.map((col) => {
+            const isInbox = col.name === 'Inbox'
+            return (
+              <Card key={col.id} className="flex flex-col p-5 transition hover:shadow-pop">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <h3 className="flex items-center gap-2 text-lg font-bold">
+                      <span className="truncate">{col.name}</span>
+                      {col.shareId && <Badge tone="success"><Globe className="h-3 w-3" />Shared</Badge>}
+                    </h3>
+                    {col.description && <p className="mt-0.5 line-clamp-2 text-sm text-muted">{col.description}</p>}
                   </div>
-              </div>
-
-              <div className="p-6 border-t border-slate-100 bg-white flex justify-between items-center">
-                  <span className="text-sm text-slate-500 font-medium">{selectedWords.size} words selected</span>
-                  <button onClick={saveWordAssignments} className="bg-blue-600 text-white px-6 py-2.5 rounded-xl font-medium hover:bg-blue-700">Save Changes</button>
-              </div>
-            </div>
-          </div>
-        )}
-        {/* Delete Confirmation Modal */}
-        {collectionToDelete && (
-          <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
-            <div className="bg-white rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl animate-in zoom-in-95">
-              <div className="p-6 text-center">
-                <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-red-600">
-                  <Trash2 className="w-8 h-8" />
+                  <div className="flex shrink-0">
+                    {!isInbox && <button aria-label={`Edit ${col.name}`} onClick={() => openForm(col)} className="rounded-lg p-2 text-muted hover:bg-surface-2 hover:text-accent"><Edit2 className="h-4 w-4" /></button>}
+                    <button aria-label={`Delete ${col.name}`} onClick={() => setToDelete(col)} className="rounded-lg p-2 text-muted hover:bg-surface-2 hover:text-danger"><Trash2 className="h-4 w-4" /></button>
+                  </div>
                 </div>
-                <h2 className="text-xl font-bold text-slate-900 mb-2">Delete "{collectionToDelete.name}"?</h2>
-                <p className="text-slate-500 mb-6 text-sm leading-relaxed">
-                  Are you sure you want to delete this collection? The words inside it will not be deleted from your vocabulary.
+
+                <p className="mt-4 flex items-center gap-1.5 text-sm font-semibold text-accent">
+                  <BookOpen className="h-4 w-4" />{col.wordIds?.length ?? 0} {col.wordIds?.length === 1 ? 'word' : 'words'}
                 </p>
-                <div className="flex flex-col space-y-2">
-                  <button 
-                    onClick={confirmDelete} 
-                    className="w-full bg-red-600 text-white font-bold py-3 rounded-xl hover:bg-red-700 transition"
-                  >
-                    Yes, Delete
-                  </button>
-                  <button 
-                    onClick={() => setCollectionToDelete(null)} 
-                    className="w-full bg-slate-100 text-slate-700 font-bold py-3 rounded-xl hover:bg-slate-200 transition"
-                  >
-                    Cancel
-                  </button>
+
+                <div className="mt-5 flex flex-wrap gap-2">
+                  <Button size="sm" onClick={() => navigate(`/session?collectionId=${col.id}`)} disabled={!col.wordIds?.length}><Play className="h-3.5 w-3.5" />Study</Button>
+                  <Button size="sm" variant="secondary" onClick={() => navigate(`/vocabulary?addWord=true&collectionId=${col.id}`)}><Plus className="h-3.5 w-3.5" />Add word</Button>
+                  <Button size="sm" variant="secondary" onClick={() => { setAssigning(col); setSelected(new Set(col.wordIds ?? [])) }}><ListChecks className="h-3.5 w-3.5" />Manage</Button>
+                  {!isInbox && (col.shareId ? (
+                    <>
+                      <Button size="sm" variant="soft" onClick={() => copyLink(col)}><Copy className="h-3.5 w-3.5" />Copy link</Button>
+                      <Button size="sm" variant="ghost" onClick={() => toggleShare(col, false)} loading={share.isPending && share.variables?.id === col.id}><Link2Off className="h-3.5 w-3.5" />Stop sharing</Button>
+                    </>
+                  ) : (
+                    <Button size="sm" variant="ghost" onClick={() => toggleShare(col, true)} disabled={!col.wordIds?.length} loading={share.isPending && share.variables?.id === col.id}><Globe className="h-3.5 w-3.5" />Share</Button>
+                  ))}
                 </div>
-              </div>
-            </div>
+              </Card>
+            )
+          })}
+        </div>
+      )}
+
+      <Modal open={formOpen} onClose={() => setFormOpen(false)} title={editing ? 'Edit collection' : 'New collection'}>
+        <form onSubmit={submit} className="space-y-4">
+          <Field label="Name">{(id) => <Input id={id} value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. TOEFL essentials" required maxLength={60} />}</Field>
+          <Field label="Description (optional)">{(id) => <Input id={id} value={description} onChange={(e) => setDescription(e.target.value)} maxLength={500} />}</Field>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="ghost" onClick={() => setFormOpen(false)}>Cancel</Button>
+            <Button type="submit" loading={create.isPending || update.isPending}>{editing ? 'Save changes' : 'Create'}</Button>
           </div>
+        </form>
+      </Modal>
+
+      <Modal open={!!assigning} onClose={() => setAssigning(null)} title={`Words in “${assigning?.name ?? ''}”`} size="lg">
+        {assignable.length === 0 ? (
+          <p className="text-sm text-muted">You have no words yet.</p>
+        ) : (
+          <>
+            <div className="grid max-h-[50vh] gap-2 overflow-y-auto sm:grid-cols-2">
+              {assignable.map((w) => {
+                const on = selected.has(w.id)
+                return (
+                  <button
+                    key={w.id}
+                    role="checkbox"
+                    aria-checked={on}
+                    onClick={() => setSelected((cur) => { const next = new Set(cur); if (on) next.delete(w.id); else next.add(w.id); return next })}
+                    className={cx('flex items-center justify-between rounded-xl border-2 px-4 py-3 text-left text-sm font-semibold transition', on ? 'border-accent bg-accent-soft text-accent' : 'border-transparent bg-surface-2 hover:border-line')}
+                  >
+                    <span className="truncate">{w.word}</span>
+                    {on && <Check className="h-4 w-4 shrink-0" />}
+                  </button>
+                )
+              })}
+            </div>
+            <div className="mt-5 flex items-center justify-between border-t border-line pt-4">
+              <span className="text-sm text-muted tabular">{selected.size} selected</span>
+              <Button loading={setWords.isPending} onClick={() => assigning && setWords.mutate({ id: assigning.id, wordIds: [...selected] }, { onSuccess: () => setAssigning(null) })}>Save</Button>
+            </div>
+          </>
         )}
+      </Modal>
 
-
-      </div>
+      <ConfirmDialog
+        open={!!toDelete}
+        title={`Delete “${toDelete?.name}”?`}
+        message={deleteCount ? `This also permanently deletes the ${deleteCount} ${deleteCount === 1 ? 'word' : 'words'} inside it, along with their progress. Move words to another collection first if you want to keep them.` : 'This collection is empty, so no words are affected.'}
+        loading={remove.isPending}
+        confirmLabel={deleteCount ? `Delete collection and ${deleteCount} ${deleteCount === 1 ? 'word' : 'words'}` : 'Delete'}
+        onClose={() => setToDelete(null)}
+        onConfirm={() => toDelete && remove.mutate(toDelete.id, { onSettled: () => setToDelete(null) })}
+      />
     </div>
-  );
+  )
 }
