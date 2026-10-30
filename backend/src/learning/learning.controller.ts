@@ -11,7 +11,18 @@ export class LearningController {
   @HttpCode(200)
   @Post(':wordId/review')
   review(@Param('wordId', ParseObjectIdPipe) wordId: string, @Body() body: ReviewDto, @UserId() userId: string) {
-    return this.learning.review(userId, wordId, body.grade);
+    return this.learning.review(userId, wordId, body);
+  }
+
+  @HttpCode(200)
+  @Post(':wordId/undo')
+  undo(@Param('wordId', ParseObjectIdPipe) wordId: string, @UserId() userId: string) {
+    return this.learning.undo(userId, wordId);
+  }
+
+  @Get('progress')
+  progress(@UserId() userId: string) {
+    return this.learning.progressList(userId);
   }
 
   @Get('today')

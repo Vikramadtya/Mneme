@@ -14,9 +14,15 @@ export class DictionaryController {
     return {
       word,
       definition: entry?.definitions[0] ?? '',
-      example: '',
+      example: entry?.examples[0] ?? '',
       pronunciation: entry?.pronunciation ?? '',
+      audioUrl: entry?.audioUrl ?? '',
       definitions: entry?.definitions ?? [],
+      examples: entry?.examples ?? [],
+      synonyms: entry?.synonyms ?? [],
+      antonyms: entry?.antonyms ?? [],
+      origin: entry?.origin ?? '',
+      meanings: entry?.meanings ?? [],
     };
   }
 }

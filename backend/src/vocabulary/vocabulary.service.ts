@@ -50,6 +50,45 @@ export class VocabularyService {
     return word.toObject();
   }
 
+  /** Adds many words at once (paste or CSV import). Existing words and repeats are skipped, not duplicated. */
+  async addMany(userId: string, items: CreateWordDto[], collectionId?: string) {
+    if (collectionId && !(await this.collections.find(userId, collectionId))) {
+      throw new NotFoundException('Collection not found');
+    }
+    const existing = await this.vocab.find({ createdBy: userId }).select('word').lean();
+    const seen = new Set(existing.map((w) => w.word.trim().toLowerCase()));
+
+    const queue: CreateWordDto[] = [];
+    const skipped: string[] = [];
+    for (const item of items) {
+      const word = item.word.trim();
+      const key = word.toLowerCase();
+      if (!word) continue;
+      if (seen.has(key)) skipped.push(word);
+      else {
+        seen.add(key);
+        queue.push({ ...item, word });
+      }
+    }
+
+    const created: string[] = [];
+    const failed: string[] = [];
+    const CONCURRENCY = 5;
+    for (let i = 0; i < queue.length; i += CONCURRENCY) {
+      await Promise.all(
+        queue.slice(i, i + CONCURRENCY).map(async (item) => {
+          try {
+            await this.add(userId, item, collectionId);
+            created.push(item.word);
+          } catch {
+            failed.push(item.word);
+          }
+        }),
+      );
+    }
+    return { created: created.length, skipped, failed };
+  }
+
   async update(userId: string, id: string, dto: UpdateWordDto, collectionId?: string) {
     if (collectionId && !(await this.collections.find(userId, collectionId))) {
       throw new NotFoundException('Collection not found');

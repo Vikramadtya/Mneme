@@ -1,9 +1,18 @@
 import { Type } from 'class-transformer';
-import { IsInt, IsMongoId, IsOptional, Max, Min } from 'class-validator';
+import { IsIn, IsInt, IsISO8601, IsMongoId, IsOptional, Max, Min } from 'class-validator';
+
+export const REVIEW_MODES = ['flip', 'typed', 'cloze', 'reverse'] as const;
 
 export class ReviewDto {
   @IsInt() @Min(0) @Max(5)
   grade: number;
+
+  @IsOptional() @IsIn(REVIEW_MODES)
+  mode?: (typeof REVIEW_MODES)[number];
+
+  /** When the review happened, for reviews that were queued offline. */
+  @IsOptional() @IsISO8601()
+  at?: string;
 }
 
 export class DueQueryDto {
