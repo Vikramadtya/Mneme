@@ -23,6 +23,11 @@ if (import.meta.env.VITE_SENTRY_DSN) {
   });
 }
 
+// Offline support and push notifications live in the service worker; it is only useful on the built site.
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => undefined));
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <App />

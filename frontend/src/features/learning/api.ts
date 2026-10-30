@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchApi } from '../../api/client';
 import type { VocabularyCollection, VocabularyItem } from '../vocabulary/api';
 
@@ -11,13 +11,29 @@ export interface WordProgress {
   reviewCount: number;
   successCount: number;
   failureCount: number;
+  lapses?: number;
   lastReviewedAt?: string;
   nextReviewAt: string;
 }
 
+export type Rating = 1 | 2 | 3 | 4;
+export type ReviewMode = 'flip' | 'reverse' | 'typed' | 'cloze';
+
 export interface TodayReview {
   progress: WordProgress;
   vocabulary: VocabularyItem;
+  /** Days until the card returns for each rating. */
+  intervals: Record<Rating, number>;
+  leech: boolean;
+}
+
+export interface WordStatus {
+  wordId: string;
+  state: 'NEW' | 'LEARNING' | 'GRADUATED';
+  nextReviewAt: string;
+  reviewCount: number;
+  lapses: number;
+  leech: boolean;
 }
 
 export interface LearningStats {
@@ -26,6 +42,7 @@ export interface LearningStats {
   newCount: number;
   learningCount: number;
   graduatedCount: number;
+  leechCount: number;
   accuracyPercent: number;
 }
 
@@ -48,20 +65,17 @@ export function useDashboardOverview() {
   });
 }
 
-export function useSubmitReview() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ wordId, grade }: { wordId: string; grade: number }) =>
-      fetchApi<WordProgress>(`/learning/${wordId}/review`, {
-        method: 'POST',
-        body: JSON.stringify({ grade }),
-      }),
-    retry: 2,
-    onSuccess: () => {
-      // Only mark stale: the dashboard isn't mounted during a session, and the session keeps its own queue.
-      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-      queryClient.invalidateQueries({ queryKey: ['analytics'] });
-      queryClient.invalidateQueries({ queryKey: ['learning', 'today'], refetchType: 'none' });
-    },
+export function useWordStatuses() {
+  return useQuery<WordStatus[]>({
+    queryKey: ['learning', 'progress'],
+    queryFn: () => fetchApi('/learning/progress'),
   });
+}
+
+/** Marks cached numbers stale after reviews; the session keeps its own queue, so it is not refetched mid-session. */
+export function refreshAfterReview(queryClient: ReturnType<typeof useQueryClient>) {
+  queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+  queryClient.invalidateQueries({ queryKey: ['analytics'] });
+  queryClient.invalidateQueries({ queryKey: ['learning', 'progress'] });
+  queryClient.invalidateQueries({ queryKey: ['learning', 'today'], refetchType: 'none' });
 }
