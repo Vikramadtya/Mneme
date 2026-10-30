@@ -12,6 +12,7 @@ import { validateEnv } from './config/env.js';
 import { DataModule } from './data/data.module.js';
 import { LearningModule } from './learning/learning.module.js';
 import { LoggerInterceptor } from './logger.interceptor.js';
+import { DataIntegrityService } from './maintenance/data-integrity.service.js';
 import { ModelsModule } from './models/models.module.js';
 import { VocabularyModule } from './vocabulary/vocabulary.module.js';
 
@@ -38,6 +39,7 @@ import { VocabularyModule } from './vocabulary/vocabulary.module.js';
     { provide: APP_GUARD, useClass: AuthGuard },
     { provide: APP_INTERCEPTOR, useClass: LoggerInterceptor },
     { provide: APP_INTERCEPTOR, useClass: SerializeInterceptor },
+    DataIntegrityService,
   ],
 })
 export class AppModule {}
