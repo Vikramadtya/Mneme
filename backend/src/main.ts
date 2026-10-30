@@ -13,17 +13,20 @@ if (process.env.SENTRY_DSN) {
 
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
-import { json } from 'express';
+import { json, urlencoded } from 'express';
 import helmet from 'helmet';
 import { AppModule } from './app.module.js';
 
 async function bootstrap() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, { bodyParser: false });
 
   app.set('trust proxy', 1); // behind Render/Vercel so rate limiting sees the real client IP
   app.use(helmet());
   // Backup imports can be large; every other route keeps Express's small default limit.
+  // Nest skips its own parsers once any `jsonParser` middleware exists, so register all of them here.
   app.use('/api/v1/data/import', json({ limit: '10mb' }));
+  app.use(json());
+  app.use(urlencoded({ extended: true }));
 
   app.enableCors({
     origin: (process.env.CORS_ORIGIN || 'http://localhost:5173').split(',').map((o) => o.trim()),
